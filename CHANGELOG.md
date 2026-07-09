@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0-dev] - 2026-07-09
+
+### Added
+
+- API security layer (`app/security/`): Bearer/API-key auth, roles, rate limiting, IP allowlist, audit logging, request ID
+- Health probes: `GET /live`, `GET /ready`
+- Security guide: `docs/SECURITY.md`
+- Security tests: `tests/test_security.py`
+- Expanded AI documentation: Web UI spec, security model, metrics→UI mapping
+
+### Changed
+
+- FastAPI app version → 0.2.0
+- Protected endpoints use role-based auth when `API_AUTH_ENABLED=true` (default `false` for local dev)
+- `.env.example` extended with security/UI env vars
+
 ## [0.1.0] - 2026-07-09
 
 ### Added
@@ -22,4 +38,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional Prometheus sidecar via `docker compose --profile monitoring up`
 - AI project guidance files (`AGENT.md`, `.ai/skills/`, `.cursor/rules/`, `CLAUDE.md`)
 
+[0.2.0-dev]: https://github.com/shatovilya/dns-dig-docker/releases/tag/v0.2.0-dev
 [0.1.0]: https://github.com/shatovilya/dns-dig-docker/releases/tag/v0.1.0

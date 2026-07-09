@@ -97,6 +97,92 @@ class Settings(BaseSettings):
     # Metrics
     metrics_enabled: bool = True
 
+    # --- API Security ---
+    environment: str = "production"
+    api_auth_enabled: bool = False
+    api_bearer_tokens: list[str] = []
+    api_keys: list[str] = []
+    api_admin_keys: list[str] = []
+    api_static_credentials_json: str = ""
+    api_basic_auth_enabled: bool = False
+    api_basic_auth_username: str = ""
+    api_basic_auth_password: str = ""
+
+    api_rate_limit_enabled: bool = True
+    api_rate_limit_read_rpm: int = 120
+    api_rate_limit_write_rpm: int = 30
+    api_rate_limit_expensive_rpm: int = 10
+    api_rate_limit_burst: int = 20
+
+    api_ip_allowlist: list[str] = []
+    api_admin_ip_allowlist: list[str] = []
+
+    api_cors_enabled: bool = False
+    api_cors_allow_origins: list[str] = []
+    api_cors_allow_credentials: bool = False
+
+    trust_proxy_enabled: bool = False
+    trust_proxy_ips: list[str] = ["127.0.0.1/32", "10.0.0.0/8"]
+    require_https: bool = False
+    security_hsts_enabled: bool = False
+    security_hsts_max_age: int = 31536000
+
+    api_max_body_bytes: int = 262144
+    api_max_records_per_run: int = 500
+    api_max_fqdn_length: int = 253
+    api_max_resolvers_per_run: int = 20
+    api_allowed_query_types: list[str] = ["A", "AAAA"]
+    api_expose_error_details: bool = False
+
+    dns_max_concurrent_runs: int = 3
+    dns_max_run_duration_seconds: int = 300
+    dns_max_active_jobs_per_token: int = 2
+
+    mtr_auth_required: bool = True
+    mtr_max_concurrent_runs: int = 2
+    mtr_max_targets_per_run: int = 20
+    mtr_max_hops: int = 32
+
+    prometheus_auth_enabled: bool = False
+    prometheus_bearer_token: str = ""
+    prometheus_ip_allowlist: list[str] = []
+    prometheus_trust_internal_networks: bool = True
+
+    # Web UI (optional observability layer)
+    dns_debug_ui_enabled: bool = False
+    dns_debug_ui_port: int = 8088
+    dns_debug_ui_bind: str = "0.0.0.0"
+    dns_debug_ui_base_path: str = "/dns-debug"
+    dns_debug_ui_readonly: bool = True
+    dns_debug_ui_refresh_seconds: int = 5
+    dns_debug_ui_auth_enabled: bool = True
+    dns_debug_ui_allowed_roles: list[str] = ["read-only", "operator", "admin"]
+    dns_debug_ui_ip_allowlist: list[str] = []
+    dns_debug_ui_csp: str = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+
+    @field_validator(
+        "api_bearer_tokens",
+        "api_keys",
+        "api_admin_keys",
+        "api_ip_allowlist",
+        "api_admin_ip_allowlist",
+        "api_cors_allow_origins",
+        "trust_proxy_ips",
+        "prometheus_ip_allowlist",
+        "dns_debug_ui_allowed_roles",
+        "dns_debug_ui_ip_allowlist",
+        "api_allowed_query_types",
+        mode="before",
+    )
+    @classmethod
+    def parse_comma_lists(cls, v: Any) -> list[str]:
+        return _parse_str_list(v)
+
+    @field_validator("api_max_records_per_run")
+    @classmethod
+    def cap_max_records(cls, v: int, info: Any) -> int:
+        return max(v, 1)
+
     # Shutdown
     shutdown_timeout_seconds: float = 5.0
 

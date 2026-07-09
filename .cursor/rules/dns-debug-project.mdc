@@ -1,5 +1,5 @@
 ---
-description: DNS Debug MVP constraints and implementation guidance
+description: DNS Debug constraints, DNS/MTR guidance, and optional Web UI rules
 alwaysApply: true
 ---
 
@@ -7,7 +7,7 @@ alwaysApply: true
 
 ## Purpose
 
-FastAPI DNS diagnostic service running inside a Docker container. Observes DNS through embedded resolver `127.0.0.11`. Diagnoses search domains, ndots thresholds, query noise, and latency under load.
+FastAPI DNS diagnostic service running inside a Docker container. Observes DNS through embedded resolver `127.0.0.11`. Diagnoses search domains, ndots thresholds, query noise, and latency under load. Optional MTR TCP diagnostics and optional Web UI observability layer.
 
 ## Non-negotiable constraints
 
@@ -16,7 +16,23 @@ FastAPI DNS diagnostic service running inside a Docker container. Observes DNS t
 3. Do not use `network_mode: host`.
 4. Do not add sidecar DNS (unbound, bind, dnsmasq).
 5. Do not claim heuristic cache metrics (`dns_debug_possible_cached_response_total`) represent real Docker DNS cache.
-6. Preserve stable API paths and Prometheus metric names.
+6. Preserve stable core API paths and Prometheus metric names.
+7. Do not delete or rename core DNS invariants without an explicit user request.
+8. Do not propose architecture that breaks embedded Docker DNS assumptions.
+9. Do not substitute container-local resolver (`127.0.0.11`) with host loopback or public DNS.
+
+## Mandatory observability model
+
+These must remain in code, metrics, and documentation:
+
+- Prometheus metrics (`/metrics`) — always enabled
+- EDNS analytics breakdown (edns0–edns5)
+- Garbage / noisy query accounting (six `NoiseType` values)
+- Cache visibility as heuristic (with disclaimer)
+- Per-resolver / per-`resolve_mode` analysis
+- MTR observability (when `MTR_ENABLED`)
+- Background test execution
+- Optional Web UI gated by `DNS_DEBUG_UI_ENABLED`
 
 ## Preferred style
 
@@ -25,6 +41,10 @@ FastAPI DNS diagnostic service running inside a Docker container. Observes DNS t
 - Use exact metric names from `app/metrics.py`
 - Keep search probes (`is_search_probe=True`) separate from primary queries in logic and docs
 - Test behavior assumes standard Docker bridge + `127.0.0.11`
+- Treat Web UI as optional layer — core engine must work with `DNS_DEBUG_UI_ENABLED=false`
+- Prefer simple observability UI on top of built-in backend — no heavy frontend frameworks without explicit request
+- Do not mix operational noise metrics with business/application metrics
+- Always distinguish useful DNS queries from garbage/noisy DNS queries
 
 ## DNS implementation guidance
 
@@ -33,16 +53,50 @@ FastAPI DNS diagnostic service running inside a Docker container. Observes DNS t
 - Noise classification in `dns_runner._classify_noise` — six `NoiseType` values
 - Analytics in `ndots_analytics.build_test_analytics` and `build_diagnosis`
 - Summaries via `stats_store.build_summary`
+- Do not treat DNS cache behavior as an unimportant detail — document heuristics honestly
 
 Key extension points: `dns_runner._resolve`, `_classify_noise`, `expand_work_items`; `stats_store.record_attempt`, `build_summary`; `metrics.record_query`, `set_test_analytics`.
 
-## Documentation expectations
+## Web UI guidance
 
-When changing DNS behavior, update relevant AI docs:
+- Gated by `DNS_DEBUG_UI_ENABLED` — when false, no UI routes, static mounts, or `/api/ui/*`
+- Default `DNS_DEBUG_UI_READONLY=true` — no POST/DELETE from browser; control tests via core API
+- Mount under `DNS_DEBUG_UI_BASE_PATH` (default `/dns-debug`) on same FastAPI app
+- Env vars: `DNS_DEBUG_UI_PORT`, `DNS_DEBUG_UI_BIND`, `DNS_DEBUG_UI_REFRESH_SECONDS`
+- Prefer Jinja2 + vanilla JS + Chart.js; no heavy SPA build pipeline
+- UI reads from `stats_store`, `mtr_store`, metrics registry, optional `data/snapshots/latest.json`
+- Never imply heuristic cache UI cards show real Docker DNS cache hits
+- UI is for developer, SRE, QA, and analyst — not a required dependency for tests
+- Any Web UI change must update UI panel descriptions in `AGENT.md` and `debugging-checklist.md`
 
-- `AGENT.md` — engineering brief
-- `.ai/skills/dns-debug/SKILL.md` — skill and change checklist
-- `.ai/skills/dns-debug/metrics-reference.md` — if metrics change
-- `.ai/skills/dns-debug/debugging-checklist.md` — if operational flow changes
+## Documentation sync requirements
 
-API endpoints: `/health`, `/resolver`, `/tests`, `/tests/{id}`, `/tests/{id}/diagnosis`, `/summary`, `/metrics`, `/mtr`, `/mtr/runs`.
+When changing behavior, update relevant AI docs:
+
+| Change type | Update |
+|-------------|--------|
+| Metrics added/renamed | `metrics-reference.md` (+ conceptual mapping if applicable) |
+| Web UI sections/endpoints | `AGENT.md`, `debugging-checklist.md` UI section |
+| MTR behavior | `debugging-checklist.md`, `SKILL.md` |
+| New env variable | `AGENT.md`, `SKILL.md`, `CLAUDE.md`, this file |
+| DNS logic / noise types | `SKILL.md`, `AGENT.md` |
+| Operational flow | `debugging-checklist.md` |
+
+Do not remove EDNS breakdown, per-resolver analysis, or MTR diagnostics from the observability model.
+
+## API endpoints
+
+**Core:** `/health`, `/resolver`, `/tests`, `/tests/{id}`, `/tests/{id}/diagnosis`, `/summary`, `/metrics`, `/mtr`, `/mtr/runs`
+
+**UI** (when `DNS_DEBUG_UI_ENABLED=true`, under `{DNS_DEBUG_UI_BASE_PATH}/api/ui/`):
+
+`/overview`, `/dns-latency`, `/edns`, `/errors`, `/garbage`, `/cache`, `/records`, `/load`, `/mtr`, `/rankings`
+
+**HTML:** `GET {DNS_DEBUG_UI_BASE_PATH}/` (e.g. `/dns-debug/`)
+
+## Trade-offs and compatibility
+
+- Prefer minimal, backward-compatible changes
+- When in doubt, preserve current observability richness
+- Document trade-offs explicitly in commits and AI docs
+- Do not break UI JSON contracts without explicit approval

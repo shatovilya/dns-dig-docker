@@ -319,6 +319,17 @@ Copy `.env.example` to `.env`.
 | `MTR_TIMEOUT_SECONDS` | `120` | Subprocess timeout |
 | `MTR_MAX_HISTORY` | `10` | Number of runs kept in memory |
 
+## API security
+
+The service supports optional API hardening via environment variables. Default: `API_AUTH_ENABLED=false` (backward compatible). Production: set `API_AUTH_ENABLED=true` and configure credentials.
+
+See [docs/SECURITY.md](docs/SECURITY.md) for roles, Prometheus protection, rate limits, and migration notes.
+
+```bash
+# With auth enabled
+curl -s -H "Authorization: Bearer <token>" http://localhost:8080/tests
+```
+
 ## AI project files
 
 For AI agents (Cursor, Claude Code, etc.) the repository includes local guidance files — they describe architecture and project constraints without changing code:
@@ -346,6 +357,8 @@ docker-compose.yml
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/health` | Service status |
+| GET | `/live` | Liveness probe |
+| GET | `/ready` | Readiness probe |
 | GET | `/resolver` | Snapshot of `/etc/resolv.conf` |
 | POST | `/tests` | Start test (unavailable in autonomous mode) |
 | GET | `/tests` | List tests |
