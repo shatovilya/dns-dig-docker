@@ -1,0 +1,48 @@
+---
+description: DNS Debug MVP constraints and implementation guidance
+alwaysApply: true
+---
+
+# DNS Debug Project Rules
+
+## Purpose
+
+FastAPI DNS diagnostic service running inside a Docker container. Observes DNS through embedded resolver `127.0.0.11`. Diagnoses search domains, ndots thresholds, query noise, and latency under load.
+
+## Non-negotiable constraints
+
+1. Do not modify `/etc/resolv.conf` at runtime or in Dockerfile.
+2. Do not add `dns:` or `dns_search:` to `docker-compose.yml`.
+3. Do not use `network_mode: host`.
+4. Do not add sidecar DNS (unbound, bind, dnsmasq).
+5. Do not claim heuristic cache metrics (`dns_debug_possible_cached_response_total`) represent real Docker DNS cache.
+6. Preserve stable API paths and Prometheus metric names.
+
+## Preferred style
+
+- Minimal, focused diffs — change only what the task requires
+- Match existing module patterns (`ResolveSpec`, async stats store, pydantic models)
+- Use exact metric names from `app/metrics.py`
+- Keep search probes (`is_search_probe=True`) separate from primary queries in logic and docs
+- Test behavior assumes standard Docker bridge + `127.0.0.11`
+
+## DNS implementation guidance
+
+- Resolve modes: `system`, `absolute_fqdn`, `ndots:N` (via `ndots_values`)
+- `expand_work_items` drives the test matrix
+- Noise classification in `dns_runner._classify_noise` — six `NoiseType` values
+- Analytics in `ndots_analytics.build_test_analytics` and `build_diagnosis`
+- Summaries via `stats_store.build_summary`
+
+Key extension points: `dns_runner._resolve`, `_classify_noise`, `expand_work_items`; `stats_store.record_attempt`, `build_summary`; `metrics.record_query`, `set_test_analytics`.
+
+## Documentation expectations
+
+When changing DNS behavior, update relevant AI docs:
+
+- `AGENT.md` — engineering brief
+- `.ai/skills/dns-debug/SKILL.md` — skill and change checklist
+- `.ai/skills/dns-debug/metrics-reference.md` — if metrics change
+- `.ai/skills/dns-debug/debugging-checklist.md` — if operational flow changes
+
+API endpoints: `/health`, `/resolver`, `/tests`, `/tests/{id}`, `/tests/{id}/diagnosis`, `/summary`, `/metrics`, `/mtr`, `/mtr/runs`.

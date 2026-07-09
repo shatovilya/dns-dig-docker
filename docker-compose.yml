@@ -1,0 +1,23 @@
+services:
+  dns-debugger:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    cap_add:
+      - NET_RAW
+    # Autonomous mode: set AUTONOMOUS_MODE=true and AUTONOMOUS_RECORDS in .env
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    profiles:
+      - monitoring
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    restart: unless-stopped
