@@ -1,18 +1,31 @@
-# Secrets — do not index
+# Files excluded from Cursor indexing (secrets, caches, build artifacts).
+# Project docs (.ai/, .cursor/rules/, AGENT.md) are intentionally indexed.
+
+# Local secrets and env overrides
 .env
 .env.*
 !.env.example
+
+# Secrets / certs
+*.pem
+*.key
+*.p12
+secrets/
 
 # Python bytecode and caches
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyo
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .pytype/
 .dmypy.json
 dmypy.json
+.python-version
+.cache/
+*.prof
 
 # Virtual environments
 .venv/
@@ -28,6 +41,7 @@ build/
 *.egg
 pip-wheel-metadata/
 wheels/
+uv.lock
 
 # Coverage reports
 .coverage
