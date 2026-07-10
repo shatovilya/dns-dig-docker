@@ -29,7 +29,12 @@ def _parse_int_list(v: Any) -> list[int]:
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_ignore_empty=True,
+    )
 
     # Server
     host: str = "0.0.0.0"
@@ -203,6 +208,11 @@ class Settings(BaseSettings):
     mtr_interval_seconds: int = 300
     mtr_timeout_seconds: float = 120.0
     mtr_max_history: int = 10
+
+    # UI snapshot persistence (historical mode)
+    snapshot_enabled: bool = True
+    snapshot_dir: str = "data/snapshots"
+    snapshot_retention_count: int = 20
 
     @field_validator("mtr_service_port")
     @classmethod

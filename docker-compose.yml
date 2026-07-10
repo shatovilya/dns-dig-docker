@@ -7,6 +7,8 @@ services:
       - "8080:8080"
     env_file:
       - .env
+    volumes:
+      - ./data/snapshots:/app/data/snapshots
     cap_add:
       - NET_RAW
     # Autonomous mode: set AUTONOMOUS_MODE=true and AUTONOMOUS_RECORDS in .env
