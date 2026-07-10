@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="{{ base_path }}/static/css/dashboard.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header class="top-bar">
+    <div class="brand">
+      <h1>DNS Debug</h1>
+      <span class="badge" id="health-badge">—</span>
+      <span class="badge badge-info" id="mode-badge">Live</span>
+      <span class="badge badge-info hidden" id="data-source-badge"></span>
+      {% if readonly %}
+      <span class="badge badge-info">read-only</span>
+      {% endif %}
+    </div>
+    <div class="controls controls-primary">
+      <div class="controls-group controls-group-mode">
+        <div class="mode-toggle" role="group" aria-label="View mode">
+          <button type="button" class="mode-btn active" data-mode="live" id="mode-live" aria-pressed="true">Live</button>
+          <button type="button" class="mode-btn" data-mode="historical" id="mode-historical" aria-pressed="false" tabindex="-1">Historical</button>
+          <button type="button" class="mode-btn" data-mode="compare" id="mode-compare" aria-pressed="false" tabindex="-1">Compare</button>
+        </div>
+        <label class="live-only">
+          Window
+          <select id="live-time-preset">
+            <option value="">Session</option>
+            <option value="15">Last 15 min</option>
+            <option value="60">Last 1 hour</option>
+          </select>
+        </label>
+      </div>
+      <div class="controls-group controls-group-filters">
+        <label>
+          <span class="sr-only">Quick search</span>
+          <input type="search" id="filter-search" placeholder="Search FQDN…" autocomplete="off">
+        </label>
+        <label>
+          Status
+          <select id="filter-status">
+            <option value="">All</option>
+            <option value="success">Success</option>
+            <option value="error">Error</option>
+            <option value="nxdomain">NXDOMAIN</option>
+            <option value="noisy">Noisy</option>
+          </select>
+        </label>
+        <label>
+          Test
+          <select id="filter-test-id"><option value="">All tests</option></select>
+        </label>
+        <label>
+          Resolve mode
+          <select id="filter-resolve-mode">
+            <option value="">All</option>
+            <option value="system">system</option>
+            <option value="absolute_fqdn">absolute_fqdn</option>
+          </select>
+        </label>
+        <label>
+          Query type
+          <select id="filter-query-type">
+            <option value="">All</option>
+            <option value="A">A</option>
+            <option value="AAAA">AAAA</option>
+          </select>
+        </label>
+      </div>
+      <div class="controls-group controls-group-actions">
+        <button type="button" id="auto-refresh-toggle" class="live-only" title="Toggle auto-refresh" aria-pressed="true">Auto-refresh ON</button>
+        <button type="button" id="reset-filters-btn" title="Reset filters">Reset</button>
+        <button type="button" id="refresh-btn" title="Refresh data">Refresh</button>
+        <button type="button" id="more-filters-btn" title="History & compare filters">History ▾</button>
+        <button type="button" id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">Theme</button>
+        <span class="last-update" id="last-update">—</span>
+      </div>
+    </div>
+    <div class="controls controls-secondary hidden" id="secondary-controls">
+      <label class="historical-only">
+        From
+        <input type="datetime-local" id="filter-from">
+      </label>
+      <label class="historical-only">
+        To
+        <input type="datetime-local" id="filter-to">
+      </label>
+      <label class="historical-only">
+        Snapshot
+        <select id="filter-snapshot"><option value="">— live buffer —</option></select>
+      </label>
+      <label class="compare-only hidden">
+        Baseline from
+        <input type="datetime-local" id="baseline-from">
+      </label>
+      <label class="compare-only hidden">
+        Baseline to
+        <input type="datetime-local" id="baseline-to">
+      </label>
+      <label class="compare-only hidden">
+        Baseline snapshot
+        <select id="baseline-snapshot"><option value="">—</option></select>
+      </label>
+      <label class="compare-only hidden">
+        Baseline test
+        <select id="baseline-test-id"><option value="">Same as Test</option></select>
+      </label>
+      <label class="compare-only hidden">
+        Baseline mode
+        <select id="baseline-resolve-mode">
+          <option value="">Same as mode</option>
+          <option value="system">system</option>
+          <option value="absolute_fqdn">absolute_fqdn</option>
+        </select>
+      </label>
+      <label class="compare-only hidden">
+        Compare from
+        <input type="datetime-local" id="compare-from">
+      </label>
+      <label class="compare-only hidden">
+        Compare to
+        <input type="datetime-local" id="compare-to">
+      </label>
+      <label class="compare-only hidden">
+        Compare snapshot
+        <select id="compare-snapshot"><option value="">—</option></select>
+      </label>
+      <label class="compare-only hidden">
+        Compare test
+        <select id="compare-test-id"><option value="">Same as Test</option></select>
+      </label>
+      <label class="compare-only hidden">
+        Compare mode
+        <select id="compare-resolve-mode">
+          <option value="">Same as mode</option>
+          <option value="system">system</option>
+          <option value="absolute_fqdn">absolute_fqdn</option>
+        </select>
+      </label>
+    </div>
+    <div class="filter-chips" id="filter-chips" aria-label="Active filters"></div>
+    <div class="banner banner-error hidden" id="error-banner">
+      <span id="error-banner-text">Failed to load dashboard data.</span>
+      <button type="button" id="error-retry">Retry</button>
+    </div>
+    <div class="banner banner-warn hidden" id="warn-banner"></div>
+    <div class="banner banner-info hidden" id="info-banner"></div>
+  </header>
+
+  <nav class="sub-nav" id="sub-nav" aria-label="Dashboard sections">
+    <a href="#zone-status" class="sub-nav-link">Status</a>
+    <a href="#zone-diagnostics" class="sub-nav-link">Diagnostics</a>
+    <a href="#zone-drilldown" class="sub-nav-link">Drilldown</a>
+  </nav>
+
+  <main class="dashboard">
+    <section id="zone-status" class="dashboard-zone">
+      <h2 class="zone-title">Status</h2>
+      <div id="global-status-strip" class="global-status-strip" role="status" aria-live="polite">
+        <span class="global-status-level" id="global-status-level">—</span>
+        <ul class="global-status-signals" id="global-status-signals"></ul>
+      </div>
+      <div id="resolver-context" class="resolver-context"></div>
+      <section id="panel-overview" class="panel" data-panel="overview">
+        <div class="panel-header">
+          <h3>Overview</h3>
+          <span class="panel-badge hidden" id="badge-overview"></span>
+        </div>
+        <div class="panel-skeleton hidden" id="skeleton-overview"></div>
+        <div class="panel-state hidden" id="state-overview"></div>
+        <div class="kpi-grid kpi-grid-wide" id="overview-kpis"></div>
+        <div class="kpi-grid kpi-grid-compare hidden" id="compare-deltas"></div>
+      </section>
+    </section>
+
+    <section id="zone-diagnostics" class="dashboard-zone">
+      <h2 class="zone-title">Diagnostics</h2>
+
+      <section id="panel-latency" class="panel" data-panel="latency">
+        <div class="panel-header">
+          <h3>DNS Latency</h3>
+          <span class="panel-badge hidden" id="badge-latency"></span>
+        </div>
+        <div class="panel-skeleton hidden" id="skeleton-latency"></div>
+        <div class="panel-state hidden" id="state-latency"></div>
+        <div class="chart-toggles live-only" id="latency-series-toggles">
+          <label><input type="checkbox" data-series="p50" checked> p50</label>
+          <label><input type="checkbox" data-series="p95" checked> p95</label>
+          <label><input type="checkbox" data-series="p99"> p99</label>
+        </div>
+        <div class="chart-row">
+          <div class="chart-container"><canvas id="chart-latency-ts"></canvas></div>
+          <div class="chart-container"><canvas id="chart-latency-mode"></canvas></div>
+        </div>
+        <div class="kpi-grid" id="latency-kpis"></div>
+      </section>
+
+      <section id="panel-edns" class="panel" data-panel="edns">
+        <div class="panel-header">
+          <h3>EDNS Analytics</h3>
+          <span class="panel-badge hidden" id="badge-edns"></span>
+        </div>
+        <div class="panel-skeleton hidden" id="skeleton-edns"></div>
+        <div class="panel-state hidden" id="state-edns"></div>
+        <p class="note" id="edns-note"></p>
+        <div class="chart-container chart-container--wide"><canvas id="chart-edns"></canvas></div>
+      </section>
+
+      <section id="panel-errors" class="panel" data-panel="errors">
+        <div class="panel-header">
+          <h3>Error Analysis</h3>
+          <span class="panel-badge hidden" id="badge-errors"></span>
+        </div>
+        <div class="panel-skeleton hidden" id="skeleton-errors"></div>
+        <div class="panel-state hidden" id="state-errors"></div>
+        <div class="chart-row">
+          <div class="chart-container"><canvas id="chart-errors-class"></canvas></div>
+          <div class="chart-container"><canvas id="chart-errors-resolver"></canvas></div>
+        </div>
+        <div class="table-wrap hidden" id="error-matrix-wrap">
+          <h4>Resolver × error class</h4>
+          <table id="error-matrix-table">
+            <thead><tr id="error-matrix-head"></tr></thead>
+            <tbody id="error-matrix-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="panel-garbage" class="panel" data-panel="garbage">
+        <div class="panel-header">
+          <h3>Garbage / Noisy Queries</h3>
+          <span class="panel-badge hidden" id="badge-garbage"></span>
+        </div>
+        <div class="panel-skeleton hidden" id="skeleton-garbage"></div>
+        <div class="panel-state hidden" id="state-garbage"></div>
+        <div class="chart-container chart-container--wide"><canvas id="chart-garbage"></canvas></div>
+        <div id="garbage-summary"></div>
+        <div id="top-noisy-domains" class="noisy-domains-list"></div>
+      </section>
+
+      <section id="panel-cache" class="panel" data-panel="cache">
+        <div class="panel-header">
+          <h3>Cache Behavior</h3>
+          <span class="panel-badge hidden" id="badge-cache"></span>
+        </div>
+        <div class="panel-skeleton hidden" id="skeleton-cache"></div>
+        <div class="panel-state hidden" id="state-cache"></div>
+        <div class="disclaimer" id="cache-disclaimer"></div>
+        <div class="kpi-grid" id="cache-kpis"></div>
+      </section>
+
+      <section id="panel-load" class="panel" data-panel="load">
+        <div class="panel-header">
+          <h3>Load / Density</h3>
+          <span class="panel-badge hidden" id="badge-load"></span>
+        </div>
+        <div class="panel-skeleton hidden" id="skeleton-load"></div>
+        <div class="panel-state hidden" id="state-load"></div>
+        <div class="kpi-grid" id="load-kpis"></div>
+        <div class="chart-container chart-container--wide"><canvas id="chart-load"></canvas></div>
+      </section>
+
+      <section id="panel-mtr" class="panel" data-panel="mtr">
+        <div class="panel-header">
+          <h3>MTR Diagnostics</h3>
+          <span class="panel-badge hidden" id="badge-mtr"></span>
+        </div>
+        <div class="panel-skeleton hidden" id="skeleton-mtr"></div>
+        <div class="panel-state hidden" id="state-mtr"></div>
+        <div id="mtr-verdict" class="verdict-card"></div>
+        <div class="table-wrap">
+          <table id="mtr-table">
+            <thead>
+              <tr>
+                <th>Hop</th>
+                <th>Host</th>
+                <th>Loss %</th>
+                <th>Avg ms</th>
+                <th>Best</th>
+                <th>Worst</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section id="zone-drilldown" class="dashboard-zone">
+      <h2 class="zone-title">Drilldown</h2>
+
+      <section id="panel-records" class="panel" data-panel="records">
+        <div class="panel-header">
+          <h3>DNS Record Drilldown</h3>
+          <span class="panel-badge hidden" id="badge-records"></span>
+        </div>
+        <div class="panel-skeleton hidden" id="skeleton-records"></div>
+        <div class="panel-state hidden" id="state-records"></div>
+        <div class="table-wrap">
+          <table id="records-table">
+            <thead>
+              <tr>
+                <th data-sort="fqdn" class="sortable">FQDN</th>
+                <th data-sort="query_type" class="sortable">Type</th>
+                <th data-sort="resolve_mode" class="sortable">Mode</th>
+                <th data-sort="status" class="sortable">Status</th>
+                <th data-sort="queries" class="sortable">Queries</th>
+                <th data-sort="errors" class="sortable">Errors</th>
+                <th data-sort="avg_latency_ms" class="sortable">Avg latency (ms)</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="panel-rankings" class="panel" data-panel="rankings">
+        <div class="panel-header">
+          <h3>Rankings</h3>
+          <span class="panel-badge hidden" id="badge-rankings"></span>
+        </div>
+        <div class="panel-skeleton hidden" id="skeleton-rankings"></div>
+        <div class="panel-state hidden" id="state-rankings"></div>
+        <div class="rankings-grid" id="rankings-grid"></div>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="events-modal" class="modal">
+    <div class="modal-header">
+      <h3 id="events-modal-title">Recent events</h3>
+      <button type="button" id="events-modal-close" aria-label="Close">×</button>
+    </div>
+    <div class="table-wrap">
+      <table id="events-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Record</th>
+            <th>Type</th>
+            <th>Mode</th>
+            <th>Outcome</th>
+            <th>Latency</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </dialog>
+
+  <dialog id="diagnosis-modal" class="modal">
+    <div class="modal-header">
+      <h3 id="diagnosis-modal-title">Test diagnosis</h3>
+      <button type="button" id="diagnosis-modal-close" aria-label="Close">×</button>
+    </div>
+    <pre id="diagnosis-json" class="diagnosis-json"></pre>
+  </dialog>
+
+  <script>
+    window.DNS_DEBUG_UI = {
+      basePath: {{ base_path | tojson }},
+      refreshSeconds: {{ refresh_seconds }},
+      readonly: {{ readonly | tojson }}
+    };
+  </script>
+  <script src="{{ base_path }}/static/js/dashboard.js"></script>
+</body>
+</html>
