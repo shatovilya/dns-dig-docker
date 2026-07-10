@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-07-10
+
+Full release notes: [docs/releases/0.5.2.md](docs/releases/0.5.2.md)
+
+### Added
+
+- Docker Compose `deploy.resources.limits` for `dns-debugger` (512M / 1 CPU), `postgres` (256M / 0.25 CPU), and `prometheus` (256M / 0.25 CPU)
+
+### Changed
+
+- FastAPI app version → 0.5.2
+- `README.md` — default resource limits table and tuning note
+
 ## [0.5.1] - 2026-07-10
 
 Full release notes: [docs/releases/0.5.1.md](docs/releases/0.5.1.md)

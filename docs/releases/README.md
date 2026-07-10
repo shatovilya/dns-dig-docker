@@ -83,6 +83,7 @@ Stages 1–3 are required for all visual/behavioral UI changes. Stage 4 when P0/
 
 | Version | Date | Title | Notes |
 |---------|------|-------|-------|
+| [0.5.2](0.5.2.md) | 2026-07-10 | Compose resource limits | CPU/RAM limits for all services |
 | [0.5.1](0.5.1.md) | 2026-07-10 | Configurable host port | `DNS_DEBUG_HOST_PORT` in docker-compose |
 | [0.5.0](0.5.0.md) | 2026-07-10 | Web UI localization (EN/RU) | i18n switcher, Intl formatting, signal params |
 | [0.4.0](0.4.0.md) | 2026-07-10 | PostgreSQL Historical Persistence | 7-day retention, local Postgres, cleanup metrics |

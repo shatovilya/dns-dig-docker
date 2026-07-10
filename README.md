@@ -1,6 +1,6 @@
 # DNS Debug — DNS diagnostics inside a Docker container
 
-**Current release:** [v0.5.1](docs/releases/0.5.1.md) — see [CHANGELOG.md](CHANGELOG.md) and [docs/releases/](docs/releases/README.md) for release history and playbook.
+**Current release:** [v0.5.2](docs/releases/0.5.2.md) — see [CHANGELOG.md](CHANGELOG.md) and [docs/releases/](docs/releases/README.md) for release history and playbook.
 
 A service for observing DNS behavior **from inside a container** through the standard Docker DNS (`127.0.0.11`). It does not change anything on the host and does not replace the resolver.
 
@@ -43,6 +43,16 @@ curl -s http://localhost:8080/resolver
 ```
 
 `docker compose up` starts **PostgreSQL** (internal service) and the app with `DNS_DEBUG_DB_ENABLED=true` by default. Historical UI data is stored in PostgreSQL with a **7-day retention** policy (configurable via `DNS_DEBUG_DB_RETENTION_DAYS`). Cleanup runs at startup and every hour (`DNS_DEBUG_DB_CLEANUP_INTERVAL_SECONDS`).
+
+Default container resource limits (`deploy.resources.limits`):
+
+| Service | Memory | CPU |
+|---------|--------|-----|
+| `dns-debugger` | 512M | 1.0 |
+| `postgres` | 256M | 0.25 |
+| `prometheus` (monitoring profile) | 256M | 0.25 |
+
+Raise limits in `docker-compose.yml` if autonomous mode or high RPS needs more headroom.
 
 To run without PostgreSQL (file-only snapshots, backward compatible):
 

@@ -224,7 +224,7 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="DNS Debugger", version="0.5.1", lifespan=lifespan)
+    app = FastAPI(title="DNS Debugger", version="0.5.2", lifespan=lifespan)
     register_exception_handlers(app)
 
     app.add_middleware(SecurityHeadersMiddleware)
