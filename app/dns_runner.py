@@ -325,6 +325,8 @@ class DnsTestRunner:
         interval = 1.0 / rps if rps > 0 else 0.1
         start_time = time.monotonic()
         pending: set[asyncio.Task] = set()
+        last_snapshot_checkpoint = start_time
+        snapshot_checkpoint_interval = 300.0  # 5 minutes for long/autonomous runs
 
         await self.store.update_status(self.test_id, TestStatus.RUNNING)
         await _adjust_active_count(1)
@@ -349,6 +351,19 @@ class DnsTestRunner:
                 pending.add(task)
                 task.add_done_callback(pending.discard)
 
+                if continuous and (time.monotonic() - last_snapshot_checkpoint) >= snapshot_checkpoint_interval:
+                    try:
+                        from snapshot_store import save_test_snapshot
+
+                        await save_test_snapshot(self.test_id)
+                        last_snapshot_checkpoint = time.monotonic()
+                    except Exception:
+                        logger.exception(
+                            "Failed periodic UI snapshot checkpoint for test %s",
+                            self.test_id,
+                            extra={"test_id": self.test_id},
+                        )
+
                 await asyncio.sleep(interval)
 
             if pending:
@@ -371,6 +386,17 @@ class DnsTestRunner:
             if test:
                 summary = self.store.build_summary(test)
                 await self.store.set_summary(self.test_id, summary)
+                if status == TestStatus.COMPLETED:
+                    try:
+                        from snapshot_store import save_test_snapshot
+
+                        await save_test_snapshot(self.test_id)
+                    except Exception:
+                        logger.exception(
+                            "Failed to save UI snapshot for test %s",
+                            self.test_id,
+                            extra={"test_id": self.test_id},
+                        )
                 if summary.ndots_search_analytics:
                     a = summary.ndots_search_analytics
                     deltas = {
