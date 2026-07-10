@@ -18,6 +18,8 @@ FastAPI DNS debug service inside a Docker container. Uses embedded DNS `127.0.0.
 
 **Hard constraints:** no resolv.conf changes, no `dns:`/`dns_search:` in compose, no host network, no sidecar DNS, no fake cache claims.
 
+**Docker Compose:** host port via `DNS_DEBUG_HOST_PORT` (default `8080`); container listens on `PORT` (`8080`).
+
 ## Sibling skills / role routing
 
 Route by task type. UI work without QA/UX review is **incomplete**.

@@ -121,6 +121,13 @@ Envelope fields (additive): `view_mode`, `data_source`, `storage_backend`, `time
 
 Full UI spec: `AGENT.md` → Web UI section.
 
+## Server / Docker Compose
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `PORT` | `8080` | Container API port |
+| `DNS_DEBUG_HOST_PORT` | `8080` | Host port in `docker-compose` `ports` mapping |
+
 ## Related files
 
 | File | Purpose |

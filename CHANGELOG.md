@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-07-10
+
+Full release notes: [docs/releases/0.5.1.md](docs/releases/0.5.1.md)
+
+### Added
+
+- `DNS_DEBUG_HOST_PORT` env var for configurable host port in `docker-compose` (`${DNS_DEBUG_HOST_PORT:-8080}:8080`)
+
+### Changed
+
+- FastAPI app version → 0.5.1
+- `.env.example`, `AGENT.md`, `CLAUDE.md`, `CURSOR.md`, `SKILL.md`, and project rules updated with host port documentation
+
 ## [0.5.0] - 2026-07-10
 
 Full release notes: [docs/releases/0.5.0.md](docs/releases/0.5.0.md)

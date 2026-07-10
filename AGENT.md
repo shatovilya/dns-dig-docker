@@ -131,7 +131,7 @@ Key principles:
 
 ## Core API surface
 
-Default port: **8080**.
+Default port: **8080** (container). Host port in `docker compose`: `DNS_DEBUG_HOST_PORT` (default **8080**).
 
 | Method | Path | Purpose |
 |--------|------|---------|
@@ -355,7 +355,8 @@ MTR complements DNS diagnostics by measuring TCP path to a target service from t
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `HOST` | `0.0.0.0` | API bind host |
-| `PORT` | `8080` | API port |
+| `PORT` | `8080` | API port (container) |
+| `DNS_DEBUG_HOST_PORT` | `8080` | Host port in `docker-compose` `ports` mapping |
 | `LOG_LEVEL` | `INFO` | Logging level |
 
 ### Autonomous mode

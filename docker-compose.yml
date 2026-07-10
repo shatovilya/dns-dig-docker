@@ -19,7 +19,7 @@ services:
       context: ./app
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "${DNS_DEBUG_HOST_PORT:-8080}:8080"
     env_file:
       - .env
     environment:

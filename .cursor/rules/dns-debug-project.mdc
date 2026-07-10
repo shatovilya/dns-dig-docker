@@ -62,7 +62,7 @@ Key extension points: `dns_runner._resolve`, `_classify_noise`, `expand_work_ite
 - Gated by `DNS_DEBUG_UI_ENABLED` — when false, no UI routes, static mounts, or `/api/ui/*`
 - Default `DNS_DEBUG_UI_READONLY=true` — no POST/DELETE from browser; control tests via core API
 - Mount under `DNS_DEBUG_UI_BASE_PATH` (default `/dns-debug`) on same FastAPI app
-- Env vars: `DNS_DEBUG_UI_PORT`, `DNS_DEBUG_UI_BIND`, `DNS_DEBUG_UI_REFRESH_SECONDS`, `DNS_DEBUG_UI_I18N_*`
+- Env vars: `DNS_DEBUG_HOST_PORT` (compose host port), `DNS_DEBUG_UI_PORT`, `DNS_DEBUG_UI_BIND`, `DNS_DEBUG_UI_REFRESH_SECONDS`, `DNS_DEBUG_UI_I18N_*`
 - **i18n:** all new user-facing UI strings via `app/ui/static/i18n/en.json` + `ru.json` and `t()` / `data-i18n` — never hardcode in templates/JS
 - Verify RU layout impact at 1024–1440px when changing labels or filters
 - Prefer Jinja2 + vanilla JS + Chart.js; no heavy SPA build pipeline

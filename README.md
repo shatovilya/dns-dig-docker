@@ -1,6 +1,6 @@
 # DNS Debug — DNS diagnostics inside a Docker container
 
-**Current release:** [v0.5.0](docs/releases/0.5.0.md) — see [CHANGELOG.md](CHANGELOG.md) and [docs/releases/](docs/releases/README.md) for release history and playbook.
+**Current release:** [v0.5.1](docs/releases/0.5.1.md) — see [CHANGELOG.md](CHANGELOG.md) and [docs/releases/](docs/releases/README.md) for release history and playbook.
 
 A service for observing DNS behavior **from inside a container** through the standard Docker DNS (`127.0.0.11`). It does not change anything on the host and does not replace the resolver.
 
@@ -86,7 +86,7 @@ JSON API: `http://localhost:8080/dns-debug/api/ui/overview`
 
 **View modes:** Live (auto-refresh toggle, KPI trends, 3-tier IA), Historical (PostgreSQL-backed snapshots with **7-day retention**, or file snapshots when DB disabled), Compare (full panel deltas via `/api/ui/compare`). **Languages:** English and Russian — header switcher `EN | RU` (`DNS_DEBUG_UI_I18N_*`). See [AGENT.md](AGENT.md) and AI skills [qa-ui](.ai/skills/qa-ui/SKILL.md) / [ux-designer](.ai/skills/ux-designer/SKILL.md). **Pre-release UX workflow** (5 stages before shipping UI changes): [AGENT.md → Pre-release UX workflow](AGENT.md#pre-release-ux-workflow), [debugging-checklist.md §10](.ai/skills/dns-debug/debugging-checklist.md).
 
-External service port: **8080**.
+External service port: **8080** by default; set `DNS_DEBUG_HOST_PORT` in `.env` to publish a different host port (container stays on `8080`).
 
 ## MTR diagnostics
 

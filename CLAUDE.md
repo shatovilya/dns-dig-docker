@@ -152,6 +152,7 @@ See `CURSOR.md` for Cursor-specific role routing and the full mandatory sync tab
 ```bash
 cp .env.example .env
 # Optional: DNS_DEBUG_UI_ENABLED=true
+# Optional: DNS_DEBUG_HOST_PORT=18080  # host port in docker compose
 docker compose up -d --build
 curl http://localhost:8080/health
 # If UI enabled:
