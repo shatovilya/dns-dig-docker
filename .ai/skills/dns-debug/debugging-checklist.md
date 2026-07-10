@@ -2,6 +2,8 @@
 
 Step-by-step workflow for diagnosing DNS behavior inside the Docker container. Assumes core service on `http://localhost:8080`. Web UI steps apply when `DNS_DEBUG_UI_ENABLED=true` (default base path `/dns-debug`).
 
+**Anti-patterns (do not):**
+
 - Bundling React/Vue or breaking core API when UI is disabled
 - Presenting UI cache cards as confirmed Docker DNS cache hits
 - Weakening `API_AUTH_ENABLED` defaults or disabling write rate limits without explicit request
@@ -170,15 +172,41 @@ http://localhost:8080/dns-debug/
 
 ### Global controls
 
+- **View mode** — Live | Historical | Compare (badge in header; `view_mode` in API envelope)
+- **3-tier IA** — sticky sub-nav: Status (`zone-status`) | Diagnostics (`zone-diagnostics`) | Drilldown (`zone-drilldown`)
 - **Theme toggle** — dark/light; persisted in `localStorage`
-- **Filters** — test_id, time range, resolve_mode, query_type (apply across sections)
-- **Auto-refresh** — polls JSON API every `DNS_DEBUG_UI_REFRESH_SECONDS`
+- **Filters** — test_id, time range (`from`/`to`), snapshot, resolve_mode, query_type, quick search, status filter; active filter chips; Reset button
+- **Auto-refresh toggle** — live mode only (default ON); polls JSON API every `DNS_DEBUG_UI_REFRESH_SECONDS`
+- **Live window presets** — Session (default), Last 15 min, Last 1 hour via `from`/`to` on event buffer
+- **Manual refresh** — all modes; historical/compare auto-refresh always off
+- **History ▾** — collapsed secondary controls for snapshot/time-range and compare pickers
+
+### Live UX checklist
+
+- [ ] `global_status` strip shows ok/degraded/critical within 5s of page load
+- [ ] KPI cards show ▲/▼ trend vs previous poll (live only)
+- [ ] Click KPI scrolls to target panel (errors, cache, latency, garbage, MTR)
+- [ ] Auto-refresh toggle stops/starts polling without mode change
+- [ ] Latency chart p50/p95/p99 toggles work
+- [ ] Error panel shows `resolver_error_matrix` table
+- [ ] Garbage panel lists `top_noisy_domains`; domain click filters records
+- [ ] Records row → Events modal (`GET /api/ui/events`); Diagnosis modal (`GET /tests/{id}/diagnosis`)
+- [ ] Cache disclaimer visible on overview KPI tooltip and cache panel
+- [ ] Loading skeletons on first fetch; test-running info banner when `tests[].status=running`
+
+### View modes
+
+| Mode | Check |
+|------|-------|
+| **Live** | Auto-refresh toggle ON by default; `data_source=live_memory`; KPI trends; optional 15m/1h window |
+| **Historical** | Auto-refresh off; grouped snapshot picker; per-panel `data_source` badge; stale/truncation banners when `warnings` set |
+| **Compare** | Baseline vs comparison pickers (incl. per-side test_id and resolve_mode); delta KPI row for all panels; `/api/ui/compare` deltas match curl |
 
 ### What to check in each section
 
 | Section | Look for |
 |---------|----------|
-| **1. Overview** | Health status, active vs completed tests, error count, success/failed ratio, last update timestamp |
+| **1. Overview** | `global_status` level + signals, resolver context, KPI row with live trends, active vs completed tests |
 | **2. DNS latency** | Line chart over time; p50/p95/p99; spikes by resolver and query type |
 | **3. EDNS analytics** | edns0–edns5 query/error counts, avg latency, error rate — correlate with `/resolver` options |
 | **4. Error analysis** | Error rate vs QPS; heatmap resolver × error class (timeout, nxdomain, servfail, refused, truncated, malformed, unexpected_rcode) |
@@ -191,15 +219,152 @@ http://localhost:8080/dns-debug/
 
 When `DNS_DEBUG_UI_READONLY=true`, use core API for `POST /tests` and `POST /mtr` — the UI is view-only.
 
-## 9. UI JSON API (curl examples)
+## 9. QA acceptance — live / historical / compare
 
-Base path default: `/dns-debug`. All endpoints accept optional query params: `test_id`, `from`, `to`, `resolve_mode`, `query_type`.
+Use [`.ai/skills/qa-ui/SKILL.md`](../qa-ui/SKILL.md) for full checklists. Minimum acceptance before shipping UI changes:
+
+### Live mode
+
+- [ ] Header badge **Live**; envelope `view_mode=live`, `data_source=live_memory`
+- [ ] Auto-refresh every `DNS_DEBUG_UI_REFRESH_SECONDS`; `last_update` advances
+- [ ] Global filters apply to all 10 panels
+- [ ] Loading, empty, and error states render per panel (not silent blanks)
+
+### Historical mode
+
+- [ ] Auto-refresh **off**; manual refresh works
+- [ ] Snapshot list populated after test completion (`SNAPSHOT_ENABLED=true`)
+- [ ] Time range (`from`/`to`) or `snapshot_id` required and visible in filter chips
+- [ ] Stale banner when `warnings` includes `event_buffer_truncated`
+- [ ] Retention message when snapshots pruned (`snapshot_retention_at_limit`)
+- [ ] Empty states explain missing data ("No snapshots — complete a test first")
+
+### Compare mode
+
+- [ ] Baseline and comparison ranges/snapshots explicitly labeled
+- [ ] `GET /api/ui/compare` deltas match UI Overview delta row (curl cross-check)
+- [ ] Division by zero → `null` delta with explanation, not misleading 0%
+- [ ] Improvement vs regression colors consistent (green = better for errors/latency)
+- [ ] Compare latency chart shows dual series with legend
+
+### API ↔ UI cross-check
 
 ```bash
 BASE=http://localhost:8080/dns-debug/api/ui
 
-curl -s "$BASE/overview" | jq
-curl -s "$BASE/dns-latency?test_id=<test_id>" | jq '.p50, .p95, .p99'
+curl -s "$BASE/overview?view_mode=live" | jq '.envelope, .error_count, .success_ratio'
+curl -s "$BASE/overview?view_mode=historical&from=2026-07-10T10:00:00Z&to=2026-07-10T11:00:00Z" | jq '.envelope'
+curl -s "$BASE/snapshots" | jq '.snapshots[:3]'
+SNAP=$(curl -s "$BASE/snapshots" | jq -r '.snapshots[0].snapshot_id')
+curl -s "$BASE/overview?view_mode=historical&snapshot_id=$SNAP" | jq '.envelope.data_source'
+curl -s "$BASE/compare?baseline_from=2026-07-10T10:00:00Z&baseline_to=2026-07-10T10:30:00Z&compare_from=2026-07-10T10:30:00Z&compare_to=2026-07-10T11:00:00Z" | jq '.deltas'
+curl -s "$BASE/compare?baseline_resolve_mode=system&compare_resolve_mode=absolute_fqdn&baseline_snapshot_id=<id1>&compare_snapshot_id=<id2>" | jq '.deltas.cache, .deltas.load, .deltas.resolver_error_matrix'
+curl -s "$BASE/events?test_id=<test_id>&record=example.com&limit=20" | jq '.events[:3]'
+curl -s "$BASE/overview?view_mode=live" | jq '.global_status, .kpi_extras'
+```
+
+### Responsive smoke / visual check
+
+Minimum responsive pass before Stage 3 full audit (implementer Stage 1 or QA Stage 3):
+
+| Width | Quick check |
+|-------|-------------|
+| 1440px | Sub-nav, filters, KPI row, changed charts readable |
+| 1024px | No clipped controls; core triage flow usable (**P1 if broken**) |
+| 768px | Mode switcher and filter bar reachable |
+| 375px | Status zone + primary KPIs visible; tables scroll |
+
+- [ ] Dark and light theme on changed panels
+- [ ] Compare delta colors consistent (green = better for errors/latency)
+- [ ] No horizontal page overflow at 1024px
+
+### Read-only and regression
+
+- [ ] `DNS_DEBUG_UI_READONLY=true` — no mutating actions in browser
+- [ ] Completing a test creates snapshot when `SNAPSHOT_ENABLED=true`
+- [ ] Filter chips visible; time range explicit in header
+- [ ] Records table sortable; cache disclaimer present
+- [ ] Core API paths and `/metrics` names unchanged by UI-only work
+
+## 10. Pre-release UX workflow (operational runbook)
+
+Five-stage workflow for UI/dashboard changes. Full spec: `AGENT.md` → Pre-release UX workflow. Skills: Stage 1/4 `dns-debug`, Stage 2 `ux-designer`, Stage 3/5 `qa-ui`.
+
+| Stage | Owner | Action |
+|-------|-------|--------|
+| **1. Self-check** | DNS engineer | Run `dns-debug` skill Stage 1 checklist; note sign-off in PR |
+| **2. UX review** | UX designer | File UX audit deliverable (`ux-designer` skill template) |
+| **3. QA review** | QA engineer | Run release readiness + responsive audit + state coverage (`qa-ui` skill) |
+| **4. Fix pass** | DNS engineer | Close P0/P1; QA spot-check; UX re-review if layout/states changed |
+| **5. Release readiness** | All | Confirm no blockers; docs synced |
+
+### Stage 1 — implementer self-check
+
+```bash
+# Smoke: dashboard loads
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/dns-debug/
+
+# Live envelope
+curl -s "http://localhost:8080/dns-debug/api/ui/overview?view_mode=live" | jq '.envelope'
+
+# Historical snapshot list
+curl -s "http://localhost:8080/dns-debug/api/ui/snapshots" | jq '.snapshots | length'
+```
+
+- [ ] Changed panels render in Live, Historical, Compare (smoke each)
+- [ ] No console errors on load
+- [ ] Stage 1 sign-off in PR before requesting UX audit
+
+### Stage 2 — UX audit
+
+- [ ] UX designer filed deliverable per `ux-designer` skill (7 blocks: Overview, Layout, Charts, Filters, States, Responsive, Accessibility)
+- [ ] No open P0/P1 UX findings — or listed for Stage 4
+
+### Stage 3 — QA release readiness
+
+- [ ] Full §9 acceptance checklists pass
+- [ ] Responsive audit at 8 widths (1920, 1440, 1366, 1280, 1024, 768, 390, 375)
+- [ ] State coverage on changed panels
+- [ ] Visual regression on changed surfaces (1440px + 1024px, dark/light)
+
+### Stage 4 — fix pass
+
+- [ ] All P0/P1 closed (or explicitly deferred with approval)
+- [ ] Fix notes in PR: finding → resolution
+- [ ] QA spot-check on fixed items
+
+### Stage 5 — release sign-off
+
+- [ ] No release blockers (`AGENT.md` table)
+- [ ] AI docs synced: skills, `AGENT.md`, this file, rules, `CLAUDE.md`, `CURSOR.md`
+
+**Incomplete:** merging UI work without Stages 1–3 complete (and Stage 4 when findings exist).
+
+## 11. UI JSON API (curl examples)
+
+Base path default: `/dns-debug`. All panel endpoints accept optional query params: `test_id`, `from`, `to`, `resolve_mode`, `query_type`, `view_mode` (`live`|`historical`|`compare`), `snapshot_id`.
+
+```bash
+BASE=http://localhost:8080/dns-debug/api/ui
+
+# Live (default)
+curl -s "$BASE/overview" | jq '.envelope.view_mode, .envelope.data_source'
+curl -s "$BASE/overview?view_mode=live" | jq
+
+# Historical — time range
+curl -s "$BASE/dns-latency?view_mode=historical&from=2026-07-10T10:00:00Z&to=2026-07-10T11:00:00Z&test_id=<test_id>" | jq '.envelope, .p50, .p95, .p99'
+
+# Historical — snapshot
+curl -s "$BASE/snapshots" | jq
+curl -s "$BASE/snapshots/<snapshot_id>" | jq '.test_id, .created_at'
+curl -s "$BASE/overview?view_mode=historical&snapshot_id=<snapshot_id>" | jq '.envelope'
+
+# Compare
+curl -s "$BASE/compare?baseline_snapshot_id=<id1>&compare_snapshot_id=<id2>" | jq '.deltas'
+curl -s "$BASE/compare?baseline_from=2026-07-10T10:00:00Z&baseline_to=2026-07-10T10:30:00Z&compare_from=2026-07-10T10:30:00Z&compare_to=2026-07-10T11:00:00Z" | jq
+
+# Panel endpoints (live + filters)
+curl -s "$BASE/dns-latency?test_id=<test_id>&resolve_mode=system" | jq '.p50, .p95, .p99'
 curl -s "$BASE/edns" | jq
 curl -s "$BASE/errors" | jq '.by_resolver, .by_error_class'
 curl -s "$BASE/garbage" | jq '.noise_counts, .useful_vs_garbage_ratio'
@@ -212,7 +377,7 @@ curl -s "$BASE/rankings" | jq
 
 Returns **404** or empty stubs when `DNS_DEBUG_UI_ENABLED=false`.
 
-## 10. Symptom → signal → action
+## 12. Symptom → signal → action
 
 | Symptom | Signal | Action |
 |---------|--------|--------|
@@ -327,13 +492,16 @@ curl -s http://localhost:8080/mtr/runs | jq '.[].parsed_hops[] | select(.loss_pe
 
 | Problem | Check | Fix |
 |---------|-------|-----|
-| Dashboard 404 | `DNS_DEBUG_UI_ENABLED` in container env | Set `true`, restart |
+| Dashboard 404 | `DNS_DEBUG_UI_ENABLED` in container env | Set `true`, `docker compose up -d --build`; UI routes mount only when enabled |
 | JSON API 404 | Base path mismatch | Verify `DNS_DEBUG_UI_BASE_PATH` |
 | Empty charts | No active/completed tests | Start test via `POST /tests` |
 | Stale data | `last_update` timestamp | Check `DNS_DEBUG_UI_REFRESH_SECONDS`; hard refresh |
 | Cannot start test from UI | `DNS_DEBUG_UI_READONLY=true` | Use core API `POST /tests` |
 | Theme not persisting | Browser localStorage | Expected — not server-side |
 | Charts unreadable | Theme toggle | Switch dark/light mode |
+| Historical empty | No snapshot / range | Complete a test; widen `from`/`to` |
+| Compare deltas N/A | Zero baseline | Expected — verify `note` in compare response |
+| Truncated history | `event_buffer_truncated` warning | Use snapshot; increase `EVENT_BUFFER_SIZE` only if justified |
 
 ## Prometheus scraping checklist
 

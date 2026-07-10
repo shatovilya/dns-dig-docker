@@ -18,10 +18,58 @@ FastAPI DNS debug service inside a Docker container. Uses embedded DNS `127.0.0.
 
 **Hard constraints:** no resolv.conf changes, no `dns:`/`dns_search:` in compose, no host network, no sidecar DNS, no fake cache claims.
 
+## Sibling skills / role routing
+
+Route by task type. UI work without QA/UX review is **incomplete**.
+
+| Task | Skill |
+|------|-------|
+| DNS resolution, metrics, MTR, core API, noise/diagnosis | **This skill** (`dns-debug`) |
+| Dashboard IA, usability, states, filters, chart hierarchy, microcopy | [ux-designer](../ux-designer/SKILL.md) |
+| UI acceptance, regression, data correctness, live/historical/compare validation | [qa-ui](../qa-ui/SKILL.md) |
+
+**Complex dashboard work:** UX designer first (IA + states + microcopy) → implement backend + frontend → Stage 1 self-check → UX Stage 2 audit → QA Stage 3 → Stage 4 fix pass → release readiness → sync skills and AI docs.
+
+**Compare mode changes:** update **both** `qa-ui` and `ux-designer` skills plus `debugging-checklist.md`.
+
+## Pre-release workflow — DNS engineer responsibilities
+
+### Stage 1: Self-check (before UX/QA review)
+
+Run after implementation, before requesting Stage 2 UX audit:
+
+- [ ] All changed panels load without console errors at `GET {BASE_PATH}/`
+- [ ] Live, historical, and compare modes work for changed surfaces (smoke each)
+- [ ] Loading, empty, and error states implemented on changed panels (not silent blanks)
+- [ ] Global filters apply; filter chips reflect active state
+- [ ] Cache heuristic disclaimer present on cache panel (if touched)
+- [ ] Responsive smoke at 1440px and 1024px — no obvious layout breakage
+- [ ] Additive JSON contracts only; no renamed `/api/ui/*` fields
+- [ ] Draft updates to skills and `debugging-checklist.md` included in change
+- [ ] `DNS_DEBUG_UI_ENABLED=false` — core API still starts (if backend touched)
+
+Sign-off: note "Stage 1 self-check complete" in PR/MR before UX review.
+
+### Stage 4: Fix pass (after QA/UX findings)
+
+Run after Stage 2/3 findings are filed:
+
+- [ ] Triage findings by severity; fix all P0 and P1 before re-review
+- [ ] P2/P3 may defer with explicit note and user approval
+- [ ] Re-run affected self-check items only (not full regression unless structural change)
+- [ ] Request QA spot-check on fixed P0/P1 items
+- [ ] Request UX re-review if layout, charts, filters, or states changed materially
+- [ ] Update fix pass notes in PR/MR: finding ID → resolution
+- [ ] Sync docs if behavior or copy changed during fix pass
+
 ## Sibling references
 
 - [debugging-checklist.md](debugging-checklist.md) — step-by-step operational flow with curl examples and UI walkthrough
 - [metrics-reference.md](metrics-reference.md) — exact Prometheus metric names, conceptual mapping, UI panel mapping
+- [qa-ui/SKILL.md](../qa-ui/SKILL.md) — QA acceptance, regression, API ↔ UI consistency, release readiness
+- [ux-designer/SKILL.md](../ux-designer/SKILL.md) — dashboard IA, states, compare/historical UX, pre-release UX audit
+
+Changes to live/historical/compare modes, filters, charts, or state design must update `qa-ui/SKILL.md`, `ux-designer/SKILL.md`, and `AGENT.md`.
 
 ## Resolution modes
 
@@ -254,6 +302,8 @@ Before merging DNS-, MTR-, UI-, or security-related changes:
 11. **Security** — classify new endpoints; write/expensive need operator+; no secret logging
 12. **Security docs sync** — auth/roles/limits changes update `docs/SECURITY.md`, `AGENT.md`, rules
 13. **Docs** — update `AGENT.md`, this skill, `metrics-reference.md`, or `debugging-checklist.md` if behavior changes
+14. **UI roles** — dashboard model changes (modes, filters, charts, states) also update `qa-ui` and `ux-designer` skills, `CURSOR.md`, and rules
+14. **QA/UX roles** — UI/historical/compare changes update `qa-ui/SKILL.md` and `ux-designer/SKILL.md`; run QA acceptance checklist
 
 ## Safe modifications
 
