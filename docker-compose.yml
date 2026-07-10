@@ -1,4 +1,19 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: dns_debug
+      POSTGRES_USER: dns_debug
+      POSTGRES_PASSWORD: dns_debug
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dns_debug -d dns_debug"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   dns-debugger:
     build:
       context: ./app
@@ -7,8 +22,14 @@ services:
       - "8080:8080"
     env_file:
       - .env
+    environment:
+      DNS_DEBUG_DB_ENABLED: "true"
+      DNS_DEBUG_DB_HOST: postgres
     volumes:
       - ./data/snapshots:/app/data/snapshots
+    depends_on:
+      postgres:
+        condition: service_healthy
     cap_add:
       - NET_RAW
     # Autonomous mode: set AUTONOMOUS_MODE=true and AUTONOMOUS_RECORDS in .env
@@ -23,3 +44,6 @@ services:
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     restart: unless-stopped
+
+volumes:
+  postgres_data:

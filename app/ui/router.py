@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
@@ -12,6 +12,7 @@ from security.ip_allowlist import check_ip_allowed
 from ui.aggregator import UIAggregator
 from ui.compare import build_compare_response
 from ui.filters import CompareFilters, UIFilters, parse_compare_filters, parse_ui_filters
+from ui.i18n import build_i18n_context, load_locale_messages
 
 _UI_DIR = Path(__file__).resolve().parent
 _TEMPLATES = Jinja2Templates(directory=str(_UI_DIR / "templates"))
@@ -30,6 +31,9 @@ def build_ui_router(settings: Settings) -> APIRouter:
 
     @router.get("/", response_class=HTMLResponse, include_in_schema=False)
     async def dashboard(request: Request, _access: UiAccess) -> HTMLResponse:
+        query_lang = request.query_params.get("lang")
+        i18n_ctx = build_i18n_context(settings, query_lang=query_lang)
+        en_messages = load_locale_messages("en")
         return _TEMPLATES.TemplateResponse(
             request,
             "dashboard.html",
@@ -37,7 +41,9 @@ def build_ui_router(settings: Settings) -> APIRouter:
                 "base_path": base,
                 "refresh_seconds": settings.dns_debug_ui_refresh_seconds,
                 "readonly": settings.dns_debug_ui_readonly,
-                "title": "DNS Debug Dashboard",
+                "title": i18n_ctx["pageTitle"],
+                "i18n": i18n_ctx,
+                "i18n_en_messages": en_messages,
             },
         )
 
@@ -95,17 +101,27 @@ def build_ui_router(settings: Settings) -> APIRouter:
         from snapshot_store import get_snapshot_store
 
         store = get_snapshot_store()
-        return {
-            "snapshots": [m.to_dict() for m in store.list_snapshots()],
+        metas = await store.list_snapshots()
+        retention: dict[str, Any] = {
             "retention_count": settings.snapshot_retention_count,
             "enabled": settings.snapshot_enabled,
+        }
+        if settings.dns_debug_db_enabled:
+            from ui.filters import _retention_window_from
+
+            retention["db_enabled"] = True
+            retention["db_retention_days"] = settings.dns_debug_db_retention_days
+            retention["retention_window_from"] = _retention_window_from(settings)
+        return {
+            "snapshots": [m.to_dict() for m in metas],
+            **retention,
         }
 
     @router.get("/api/ui/snapshots/{snapshot_id}")
     async def ui_snapshot_detail(snapshot_id: str, _access: UiAccess):
         from snapshot_store import get_snapshot_store
 
-        data = get_snapshot_store().get(snapshot_id)
+        data = await get_snapshot_store().get(snapshot_id)
         if not data:
             from fastapi import HTTPException
 

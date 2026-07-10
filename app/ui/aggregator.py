@@ -7,7 +7,7 @@ from models import NoiseType, QueryOutcome, TestStatus
 from mtr_store import MtrRunResult, get_mtr_store
 from resolver_snapshot import get_snapshot
 from stats_store import QueryAttempt, TestState, get_stats_store
-from ui.filters import UIFilters, collect_warnings, envelope, filter_attempts, select_tests
+from ui.filters import UIFilters, collect_warnings_async, envelope, filter_attempts, select_tests
 from utils import percentile, safe_ratio
 
 CACHE_DISCLAIMER = (
@@ -34,11 +34,17 @@ def derive_ui_health(
     mtr_enabled: bool,
 ) -> dict[str, Any]:
     """Derive global_status rollup for Live overview (additive JSON)."""
-    signals: list[dict[str, str]] = []
+    signals: list[dict[str, Any]] = []
     level = "ok"
 
     error_rate = 1.0 - success_ratio if total_queries else 0.0
     threshold = settings.diagnosis_error_rate_threshold
+
+    def _signal(code: str, message: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        payload: dict[str, Any] = {"code": code, "message": message}
+        if params:
+            payload["params"] = params
+        return payload
 
     if mtr_enabled and mtr_verdict in (
         "packet_loss_suspected",
@@ -47,39 +53,63 @@ def derive_ui_health(
         "local_issue",
     ):
         level = "critical"
-        signals.append({"code": "mtr_packet_loss", "message": f"MTR verdict: {mtr_verdict}"})
+        signals.append(_signal("mtr_packet_loss", f"MTR verdict: {mtr_verdict}", {"mtr_verdict": mtr_verdict}))
     elif error_qps >= _ERROR_STORM_QPS and error_count > 0:
         level = "critical"
-        signals.append({"code": "error_storm", "message": f"Error QPS {error_qps:.1f} exceeds storm threshold"})
+        signals.append(
+            _signal(
+                "error_storm",
+                f"Error QPS {error_qps:.1f} exceeds storm threshold",
+                {"error_qps": round(error_qps, 1)},
+            )
+        )
 
     if level != "critical":
         if error_rate >= threshold * 2:
             level = "critical"
             signals.append(
-                {"code": "high_error_rate", "message": f"Error rate {error_rate:.1%} is critically elevated"}
+                _signal(
+                    "high_error_rate",
+                    f"Error rate {error_rate:.1%} is critically elevated",
+                    {"error_rate": error_rate},
+                )
             )
         elif error_rate >= threshold:
             level = "degraded"
             signals.append(
-                {"code": "elevated_errors", "message": f"Error rate {error_rate:.1%} above threshold {threshold:.1%}"}
+                _signal(
+                    "elevated_errors",
+                    f"Error rate {error_rate:.1%} above threshold {threshold:.1%}",
+                    {"error_rate": error_rate, "threshold": threshold},
+                )
             )
 
     if p95_ms >= _LATENCY_P95_DEGRADED_MS and level == "ok":
         level = "degraded"
-        signals.append({"code": "latency_p95_high", "message": f"p95 latency {p95_ms:.0f} ms elevated"})
+        signals.append(
+            _signal(
+                "latency_p95_high",
+                f"p95 latency {p95_ms:.0f} ms elevated",
+                {"p95_ms": round(p95_ms)},
+            )
+        )
 
     if garbage_ratio >= _GARBAGE_RATIO_DEGRADED and level == "ok":
         level = "degraded"
         signals.append(
-            {"code": "noisy_ratio_high", "message": f"Garbage ratio {garbage_ratio:.1%} above {_GARBAGE_RATIO_DEGRADED:.0%}"}
+            _signal(
+                "noisy_ratio_high",
+                f"Garbage ratio {garbage_ratio:.1%} above {_GARBAGE_RATIO_DEGRADED:.0%}",
+                {"garbage_ratio": garbage_ratio, "threshold": _GARBAGE_RATIO_DEGRADED},
+            )
         )
 
     if mtr_enabled and mtr_verdict == "unstable_path" and level == "ok":
         level = "degraded"
-        signals.append({"code": "mtr_unstable", "message": "MTR reports unstable path"})
+        signals.append(_signal("mtr_unstable", "MTR reports unstable path"))
 
     if not signals and total_queries == 0:
-        signals.append({"code": "no_data", "message": "No queries in selected scope"})
+        signals.append(_signal("no_data", "No queries in selected scope"))
 
     return {"level": level, "signals": signals}
 
@@ -188,23 +218,26 @@ class UIAggregator:
     def _panel_key(self, name: str) -> str:
         return name.replace("-", "_")
 
-    def _load_snapshot_panel(self, filters: UIFilters, panel: str) -> dict[str, Any] | None:
+    async def _load_snapshot_panel_async(self, filters: UIFilters, panel: str) -> dict[str, Any] | None:
         if not filters.snapshot_id:
             return None
         from snapshot_store import get_snapshot_store
 
-        data = get_snapshot_store().get(filters.snapshot_id)
+        data = await get_snapshot_store().get(filters.snapshot_id)
         if not data:
             return None
         panels = data.get("panels") or {}
         return panels.get(panel)
 
-    def _meta(self, tests: list[TestState], filters: UIFilters) -> dict[str, Any]:
-        warnings = collect_warnings(tests, self.settings)
+    async def _meta(self, tests: list[TestState], filters: UIFilters) -> dict[str, Any]:
+        from ui.filters import get_snapshot_count
+
+        warnings = await collect_warnings_async(tests, self.settings, filters)
         is_stale = "event_buffer_truncated" in warnings or filters.view_mode == "historical"
         if filters.snapshot_id:
             is_stale = False
-        return {"warnings": warnings, "is_stale": is_stale}
+        snapshot_count = await get_snapshot_count(self.settings)
+        return {"warnings": warnings, "is_stale": is_stale, "snapshot_count": snapshot_count}
 
     async def _context(self, filters: UIFilters) -> tuple[list[TestState], list[QueryAttempt]]:
         store = get_stats_store()
@@ -213,13 +246,13 @@ class UIAggregator:
         return tests, attempts
 
     async def overview(self, filters: UIFilters) -> dict[str, Any]:
-        cached = self._load_snapshot_panel(filters, "overview")
+        cached = await self._load_snapshot_panel_async(filters, "overview")
         if cached:
             return cached
 
         store = get_stats_store()
         tests, attempts = await self._context(filters)
-        meta = self._meta(tests, filters)
+        meta = await self._meta(tests, filters)
         global_summary = await store.get_global_summary()
         snapshot = get_snapshot()
 
@@ -328,7 +361,7 @@ class UIAggregator:
     ) -> dict[str, Any]:
         """Recent query events from in-memory test buffer (no persistence)."""
         tests, attempts = await self._context(filters)
-        meta = self._meta(tests, filters)
+        meta = await self._meta(tests, filters)
         if record:
             attempts = [a for a in attempts if a.record == record]
         attempts = sorted(attempts, key=lambda a: a.timestamp, reverse=True)[: max(1, min(limit, 200))]
@@ -349,12 +382,12 @@ class UIAggregator:
         return envelope(filters, self.settings, **meta, events=rows, limit=limit, record_filter=record)
 
     async def dns_latency(self, filters: UIFilters) -> dict[str, Any]:
-        cached = self._load_snapshot_panel(filters, "dns_latency")
+        cached = await self._load_snapshot_panel_async(filters, "dns_latency")
         if cached:
             return cached
 
         tests, attempts = await self._context(filters)
-        meta = self._meta(tests, filters)
+        meta = await self._meta(tests, filters)
         primary = [a for a in attempts if not a.is_search_probe]
         latencies = [a.latency_ms for a in primary]
 
@@ -382,12 +415,12 @@ class UIAggregator:
         )
 
     async def edns(self, filters: UIFilters) -> dict[str, Any]:
-        cached = self._load_snapshot_panel(filters, "edns")
+        cached = await self._load_snapshot_panel_async(filters, "edns")
         if cached:
             return cached
 
         tests, attempts = await self._context(filters)
-        meta = self._meta(tests, filters)
+        meta = await self._meta(tests, filters)
         primary = [a for a in attempts if not a.is_search_probe]
         total = len(primary)
         errors = sum(1 for a in primary if a.outcome != QueryOutcome.SUCCESS)
@@ -420,12 +453,12 @@ class UIAggregator:
         return envelope(filters, self.settings, **meta, levels=levels, note=EDNS_NOTE)
 
     async def errors(self, filters: UIFilters) -> dict[str, Any]:
-        cached = self._load_snapshot_panel(filters, "errors")
+        cached = await self._load_snapshot_panel_async(filters, "errors")
         if cached:
             return cached
 
         tests, attempts = await self._context(filters)
-        meta = self._meta(tests, filters)
+        meta = await self._meta(tests, filters)
         error_attempts = [
             a
             for a in attempts
@@ -469,12 +502,12 @@ class UIAggregator:
         )
 
     async def garbage(self, filters: UIFilters) -> dict[str, Any]:
-        cached = self._load_snapshot_panel(filters, "garbage")
+        cached = await self._load_snapshot_panel_async(filters, "garbage")
         if cached:
             return cached
 
         tests, attempts = await self._context(filters)
-        meta = self._meta(tests, filters)
+        meta = await self._meta(tests, filters)
         noise_counts = _aggregate_noise(tests)
         total_noise = sum(noise_counts.values())
         useful = sum(1 for a in attempts if not a.is_noisy and not a.is_search_probe)
@@ -511,12 +544,12 @@ class UIAggregator:
         )
 
     async def cache(self, filters: UIFilters) -> dict[str, Any]:
-        cached = self._load_snapshot_panel(filters, "cache")
+        cached = await self._load_snapshot_panel_async(filters, "cache")
         if cached:
             return cached
 
         tests, attempts = await self._context(filters)
-        meta = self._meta(tests, filters)
+        meta = await self._meta(tests, filters)
         hits = sum(t.counters.possible_cache_hits for t in tests)
         total = sum(t.counters.total for t in tests)
 
@@ -564,12 +597,12 @@ class UIAggregator:
         )
 
     async def records(self, filters: UIFilters) -> dict[str, Any]:
-        cached = self._load_snapshot_panel(filters, "records")
+        cached = await self._load_snapshot_panel_async(filters, "records")
         if cached:
             return cached
 
         tests, attempts = await self._context(filters)
-        meta = self._meta(tests, filters)
+        meta = await self._meta(tests, filters)
         by_record: dict[str, list[QueryAttempt]] = defaultdict(list)
         for a in attempts:
             if a.is_search_probe:
@@ -612,12 +645,12 @@ class UIAggregator:
         return envelope(filters, self.settings, **meta, records=rows, per_record_summary=per_record_stats)
 
     async def load(self, filters: UIFilters) -> dict[str, Any]:
-        cached = self._load_snapshot_panel(filters, "load")
+        cached = await self._load_snapshot_panel_async(filters, "load")
         if cached:
             return cached
 
         tests, attempts = await self._context(filters)
-        meta = self._meta(tests, filters)
+        meta = await self._meta(tests, filters)
         primary = [a for a in attempts if not a.is_search_probe]
         total = len(primary)
         success = sum(1 for a in primary if a.outcome == QueryOutcome.SUCCESS)
@@ -655,12 +688,12 @@ class UIAggregator:
         )
 
     async def mtr(self, filters: UIFilters) -> dict[str, Any]:
-        cached = self._load_snapshot_panel(filters, "mtr")
+        cached = await self._load_snapshot_panel_async(filters, "mtr")
         if cached:
             return cached
 
         tests, _ = await self._context(filters)
-        meta = self._meta(tests, filters)
+        meta = await self._meta(tests, filters)
         if len(await get_mtr_store().list_runs()) >= self.settings.mtr_max_history:
             meta["warnings"] = list(dict.fromkeys([*meta["warnings"], "mtr_history_at_limit"]))
         store = get_mtr_store()
@@ -704,12 +737,12 @@ class UIAggregator:
         )
 
     async def rankings(self, filters: UIFilters) -> dict[str, Any]:
-        cached = self._load_snapshot_panel(filters, "rankings")
+        cached = await self._load_snapshot_panel_async(filters, "rankings")
         if cached:
             return cached
 
         tests, attempts = await self._context(filters)
-        meta = self._meta(tests, filters)
+        meta = await self._meta(tests, filters)
         primary = [a for a in attempts if not a.is_search_probe]
 
         def _rank(key_fn, limit: int = 10) -> list[dict[str, Any]]:

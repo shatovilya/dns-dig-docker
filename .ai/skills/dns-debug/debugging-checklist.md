@@ -180,6 +180,17 @@ http://localhost:8080/dns-debug/
 - **Live window presets** — Session (default), Last 15 min, Last 1 hour via `from`/`to` on event buffer
 - **Manual refresh** — all modes; historical/compare auto-refresh always off
 - **History ▾** — collapsed secondary controls for snapshot/time-range and compare pickers
+- **Language switcher** — `EN | RU` in header; persists in `localStorage` (`dns-debug-lang`); switches without full reload
+
+### Localization (i18n) checklist
+
+- [ ] Toggle EN → RU: all panel titles, filters, KPIs, chart legends update
+- [ ] Historical mode: retention/stale/empty banners in RU
+- [ ] Compare mode: delta labels, baseline/comparison chips, scope hints in RU
+- [ ] No raw translation keys visible (e.g. `filters.test.label`)
+- [ ] `global_status` signals translated via `code` (not English-only `message`)
+- [ ] Layout intact at 1024px and 1440px in RU (header, filters, KPI row)
+- [ ] Canonical terms unchanged: FQDN, `system`, `absolute_fqdn`, A/AAAA, metric names
 
 ### Live UX checklist
 
@@ -236,7 +247,9 @@ Use [`.ai/skills/qa-ui/SKILL.md`](../qa-ui/SKILL.md) for full checklists. Minimu
 - [ ] Snapshot list populated after test completion (`SNAPSHOT_ENABLED=true`)
 - [ ] Time range (`from`/`to`) or `snapshot_id` required and visible in filter chips
 - [ ] Stale banner when `warnings` includes `event_buffer_truncated`
-- [ ] Retention message when snapshots pruned (`snapshot_retention_at_limit`)
+- [ ] Retention message when snapshots pruned (`snapshot_retention_at_limit` file mode, or `retention.db_retention_days` banner in PG mode)
+- [ ] `outside_retention_window` warning when `from`/`to` exceeds `DNS_DEBUG_DB_RETENTION_DAYS`
+- [ ] `db_unavailable` warning when PG enabled but pool down
 - [ ] Empty states explain missing data ("No snapshots — complete a test first")
 
 ### Compare mode
@@ -502,6 +515,8 @@ curl -s http://localhost:8080/mtr/runs | jq '.[].parsed_hops[] | select(.loss_pe
 | Historical empty | No snapshot / range | Complete a test; widen `from`/`to` |
 | Compare deltas N/A | Zero baseline | Expected — verify `note` in compare response |
 | Truncated history | `event_buffer_truncated` warning | Use snapshot; increase `EVENT_BUFFER_SIZE` only if justified |
+| PG historical empty | `DNS_DEBUG_DB_ENABLED` / pool | Check `postgres` healthy; `docker compose logs postgres`; verify `dns_debug_db_write_total` |
+| Data older than 7d | Retention policy | Expected — widen window only via `DNS_DEBUG_DB_RETENTION_DAYS`; data is deleted by cleanup |
 
 ## Prometheus scraping checklist
 

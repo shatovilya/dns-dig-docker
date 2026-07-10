@@ -27,7 +27,8 @@ Use this skill when validating DNS Debug Web UI functionality, data correctness,
 4. [`app/ui/aggregator.py`](../../../app/ui/aggregator.py) — panel data sources
 5. [`app/ui/filters.py`](../../../app/ui/filters.py) — filter params, envelope contract
 6. [`app/ui/compare.py`](../../../app/ui/compare.py) — compare delta logic
-7. [`app/snapshot_store.py`](../../../app/snapshot_store.py) — snapshot persistence and retention
+7. [`app/snapshot_store.py`](../../../app/snapshot_store.py) — snapshot persistence (file or PostgreSQL)
+8. [`app/db/`](../../../app/db/) — PostgreSQL historical persistence and 7-day retention cleanup
 8. [`docs/SECURITY.md`](../../../docs/SECURITY.md) — roles, UI auth
 
 ## Live / historical / compare verification
@@ -56,7 +57,8 @@ Use this skill when validating DNS Debug Web UI functionality, data correctness,
 - [ ] `data_source` is `snapshot` or `event_buffer` — never ambiguous
 - [ ] Selected time range visible in header / filter chips
 - [ ] Stale banner when `warnings` contains `event_buffer_truncated`
-- [ ] Retention banner when snapshot list is pruned (`snapshot_retention_at_limit`)
+- [ ] Retention banner when snapshot list is pruned (`snapshot_retention_at_limit` file mode) or PostgreSQL 7-day window (`retention.db_enabled`, `retention.db_retention_days`)
+- [ ] `outside_retention_window` and `db_unavailable` warnings render correct copy
 - [ ] Missing historical data explained (empty state message), not silent blank panels
 
 ### Compare mode
@@ -118,6 +120,18 @@ After layout, chart, or CSS changes:
 - [ ] Cache disclaimer tooltip and retention banners still visible after restyle
 - [ ] No regression in compare delta colors (green = improvement for errors/latency)
 
+## Localization (i18n) review
+
+For any UI change that adds or modifies user-visible text:
+
+- [ ] New keys added to **both** `app/ui/static/i18n/en.json` and `ru.json`
+- [ ] Template uses `data-i18n` / `data-i18n-title` / `data-i18n-placeholder` (not hardcoded English)
+- [ ] `dashboard.js` uses `t("namespace.key")` — no inline English literals for labels
+- [ ] EN and RU visual parity at 1440px and 1024px (no clipped header controls)
+- [ ] Historical + Compare screens fully localized (not Live-only)
+- [ ] Glossary consistency: same RU term for Live/Historical/Compare (e.g. «Снимок», «Сравнение»)
+- [ ] Run `tests/test_ui_i18n.py` — key parity and template key coverage
+
 ## State coverage review
 
 For every **changed** panel, verify all applicable states (not only happy path):
@@ -158,12 +172,16 @@ Complete before marking UI work release-ready:
 - [ ] Stage 2 UX audit deliverable filed (`ux-designer` skill)
 - [ ] Stage 4 fix pass closed all P0/P1 findings (or explicitly deferred with approval)
 - [ ] AI docs synced: this skill, UX skill, `AGENT.md`, `debugging-checklist.md`, rules, `CLAUDE.md`, `CURSOR.md`
+- [ ] `CHANGELOG.md` updated for the release
+- [ ] `docs/releases/X.Y.Z.md` created with full release notes (UX, responsive, localization, workflow, docs)
+- [ ] Version in `app/main.py` matches CHANGELOG entry
 
 ### Release blockers (do not ship)
 
 - [ ] No open P0 bugs
 - [ ] No open P1 bugs (including responsive laptop breakage and misleading observability)
 - [ ] No skipped UX audit or QA release readiness pass
+- [ ] No missing release documentation (`CHANGELOG.md` or `docs/releases/X.Y.Z.md`)
 
 ## API ↔ UI consistency
 
@@ -316,4 +334,4 @@ P0–P3 (see matrix below)
 
 - DNS/MTR/metrics logic → [dns-debug SKILL](../dns-debug/SKILL.md)
 - UX structure, states, microcopy → [ux-designer SKILL](../ux-designer/SKILL.md)
-- Complex dashboard change: UX design → implement → Stage 1 self-check → UX Stage 2 audit → **this skill Stage 3** → fix pass → release readiness → sync docs
+- Complex dashboard change: UX design → implement → Stage 1 self-check → UX Stage 2 audit → **this skill Stage 3** → fix pass → release readiness → release documentation → sync docs

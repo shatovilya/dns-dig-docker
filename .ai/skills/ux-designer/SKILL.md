@@ -74,7 +74,7 @@ Click KPI → scroll to target panel + apply context (errors → panel-errors, c
 - **Time range always visible** — in header and filter chips (`from` – `to` or snapshot label)
 - **Data source labeled** — `live_memory`, `event_buffer`, or `snapshot`
 - **Auto-refresh off** in historical/compare; manual refresh button visible
-- **Retention honest** — explain `EVENT_BUFFER_SIZE` truncation and snapshot retention limits
+- **Retention honest** — explain `EVENT_BUFFER_SIZE` truncation; PostgreSQL **7-day** window (`DNS_DEBUG_DB_RETENTION_DAYS`) or file snapshot count limit
 - **Snapshot selector** — list by test name, completed time, test_id
 
 ### Microcopy examples
@@ -83,7 +83,7 @@ Click KPI → scroll to target panel + apply context (errors → panel-errors, c
 |-------|------|
 | No snapshots | "No saved runs yet. Complete a DNS test to create a historical snapshot." |
 | Buffer truncated | "Showing last N events only. Older queries are not in memory." |
-| Retention pruned | "Older snapshots were removed (retention limit). Run a new test to capture fresh data." |
+| Retention pruned | File: "Older snapshots were removed (retention limit)." PG: "Historical data retained for N days in local PostgreSQL." Outside window: data not available. |
 | Empty time range | "No queries in the selected time range. Widen the range or pick another test." |
 
 ## Compare mode
@@ -108,6 +108,27 @@ Click KPI → scroll to target panel + apply context (errors → panel-errors, c
 - **One primary action per mode** — Live: watch; Historical: pick snapshot; Compare: pick two periods
 - **Consistent panel order** — match incident triage priority (errors before rankings)
 - **Limit chart count per row** — max 2 side-by-side on laptop; stack on mobile
+
+## Localization (i18n)
+
+### Language switcher
+
+- Placement: header actions group, before Theme — compact `EN | RU`
+- Active language: filled accent style; `aria-pressed` on buttons
+- Do not hide switcher when `DNS_DEBUG_UI_I18N_ENABLED=true`
+
+### RU microcopy guidelines
+
+- Short technical Russian; avoid literary phrasing
+- Keep canonical identifiers in Latin: `NXDOMAIN`, `MTR`, `p50`, `system`, `absolute_fqdn`
+- Prefer: «Онлайн», «История», «Сравнение», «Снимок», «Эвристика кэша»
+- Long labels: allow wrap in KPI `.label` and filter `<span>` — test at 1024–1440px
+
+### Layout impact checklist (RU)
+
+- [ ] Header: mode badge + lang switcher + refresh visible at 1280px
+- [ ] Compare pickers readable without horizontal scroll at 1024px
+- [ ] Chart legends reflow to bottom at 768px (existing behavior)
 
 ## Chart and table readability
 

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="{{ i18n.lang }}" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,155 +10,159 @@
 <body>
   <header class="top-bar">
     <div class="brand">
-      <h1>DNS Debug</h1>
+      <h1 data-i18n="dashboard.brand">DNS Debug</h1>
       <span class="badge" id="health-badge">—</span>
-      <span class="badge badge-info" id="mode-badge">Live</span>
+      <span class="badge badge-info" id="mode-badge" data-i18n="filters.mode.live">Live</span>
       <span class="badge badge-info hidden" id="data-source-badge"></span>
       {% if readonly %}
-      <span class="badge badge-info">read-only</span>
+      <span class="badge badge-info" data-i18n="common.readonly">read-only</span>
       {% endif %}
     </div>
     <div class="controls controls-primary">
       <div class="controls-group controls-group-mode">
-        <div class="mode-toggle" role="group" aria-label="View mode">
-          <button type="button" class="mode-btn active" data-mode="live" id="mode-live" aria-pressed="true">Live</button>
-          <button type="button" class="mode-btn" data-mode="historical" id="mode-historical" aria-pressed="false" tabindex="-1">Historical</button>
-          <button type="button" class="mode-btn" data-mode="compare" id="mode-compare" aria-pressed="false" tabindex="-1">Compare</button>
+        <div class="mode-toggle" role="group" data-i18n-aria-label="filters.view_mode" aria-label="View mode">
+          <button type="button" class="mode-btn active" data-mode="live" id="mode-live" aria-pressed="true" data-i18n="filters.mode.live">Live</button>
+          <button type="button" class="mode-btn" data-mode="historical" id="mode-historical" aria-pressed="false" tabindex="-1" data-i18n="filters.mode.historical">Historical</button>
+          <button type="button" class="mode-btn" data-mode="compare" id="mode-compare" aria-pressed="false" tabindex="-1" data-i18n="filters.mode.compare">Compare</button>
         </div>
         <label class="live-only">
-          Window
+          <span data-i18n="filters.window">Window</span>
           <select id="live-time-preset">
-            <option value="">Session</option>
-            <option value="15">Last 15 min</option>
-            <option value="60">Last 1 hour</option>
+            <option value="" data-i18n="filters.window_session">Session</option>
+            <option value="15" data-i18n="filters.window_15min">Last 15 min</option>
+            <option value="60" data-i18n="filters.window_1hour">Last 1 hour</option>
           </select>
         </label>
       </div>
       <div class="controls-group controls-group-filters">
         <label>
-          <span class="sr-only">Quick search</span>
-          <input type="search" id="filter-search" placeholder="Search FQDN…" autocomplete="off">
+          <span class="sr-only" data-i18n="filters.search_sr">Quick search</span>
+          <input type="search" id="filter-search" data-i18n-placeholder="filters.search_placeholder" placeholder="Search FQDN…" autocomplete="off">
         </label>
         <label>
-          Status
+          <span data-i18n="filters.status">Status</span>
           <select id="filter-status">
-            <option value="">All</option>
-            <option value="success">Success</option>
-            <option value="error">Error</option>
-            <option value="nxdomain">NXDOMAIN</option>
-            <option value="noisy">Noisy</option>
+            <option value="" data-i18n="common.all">All</option>
+            <option value="success" data-i18n="filters.status_success">Success</option>
+            <option value="error" data-i18n="filters.status_error">Error</option>
+            <option value="nxdomain" data-i18n="filters.status_nxdomain">NXDOMAIN</option>
+            <option value="noisy" data-i18n="filters.status_noisy">Noisy</option>
           </select>
         </label>
         <label>
-          Test
-          <select id="filter-test-id"><option value="">All tests</option></select>
+          <span data-i18n="filters.test">Test</span>
+          <select id="filter-test-id"><option value="" data-i18n="filters.all_tests">All tests</option></select>
         </label>
         <label>
-          Resolve mode
+          <span data-i18n="filters.resolve_mode">Resolve mode</span>
           <select id="filter-resolve-mode">
-            <option value="">All</option>
+            <option value="" data-i18n="common.all">All</option>
             <option value="system">system</option>
             <option value="absolute_fqdn">absolute_fqdn</option>
           </select>
         </label>
         <label>
-          Query type
+          <span data-i18n="filters.query_type">Query type</span>
           <select id="filter-query-type">
-            <option value="">All</option>
+            <option value="" data-i18n="common.all">All</option>
             <option value="A">A</option>
             <option value="AAAA">AAAA</option>
           </select>
         </label>
       </div>
       <div class="controls-group controls-group-actions">
-        <button type="button" id="auto-refresh-toggle" class="live-only" title="Toggle auto-refresh" aria-pressed="true">Auto-refresh ON</button>
-        <button type="button" id="reset-filters-btn" title="Reset filters">Reset</button>
-        <button type="button" id="refresh-btn" title="Refresh data">Refresh</button>
-        <button type="button" id="more-filters-btn" title="History & compare filters">History ▾</button>
-        <button type="button" id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">Theme</button>
+        <div class="lang-switcher{% if not i18n.enabled %} hidden{% endif %}" id="lang-switcher" role="group" data-i18n-aria-label="filters.language" aria-label="Language">
+          <button type="button" class="lang-btn" data-lang="en" aria-pressed="false" data-i18n="filters.lang_en">EN</button>
+          <button type="button" class="lang-btn" data-lang="ru" aria-pressed="false" data-i18n="filters.lang_ru">RU</button>
+        </div>
+        <button type="button" id="auto-refresh-toggle" class="live-only" data-i18n-title="filters.auto_refresh_toggle" title="Toggle auto-refresh" aria-pressed="true" data-i18n="filters.auto_refresh_on">Auto-refresh ON</button>
+        <button type="button" id="reset-filters-btn" data-i18n-title="filters.reset_filters" title="Reset filters" data-i18n="common.reset">Reset</button>
+        <button type="button" id="refresh-btn" data-i18n-title="filters.refresh_data" title="Refresh data" data-i18n="common.refresh">Refresh</button>
+        <button type="button" id="more-filters-btn" data-i18n-title="filters.history_filters" title="History & compare filters" data-i18n="filters.history_filters_btn">History ▾</button>
+        <button type="button" id="theme-toggle" data-i18n-title="common.theme_toggle" data-i18n-aria-label="common.theme_toggle" title="Toggle theme" aria-label="Toggle theme" data-i18n="common.theme">Theme</button>
         <span class="last-update" id="last-update">—</span>
       </div>
     </div>
     <div class="controls controls-secondary hidden" id="secondary-controls">
       <label class="historical-only">
-        From
+        <span data-i18n="filters.from">From</span>
         <input type="datetime-local" id="filter-from">
       </label>
       <label class="historical-only">
-        To
+        <span data-i18n="filters.to">To</span>
         <input type="datetime-local" id="filter-to">
       </label>
       <label class="historical-only">
-        Snapshot
-        <select id="filter-snapshot"><option value="">— live buffer —</option></select>
+        <span data-i18n="filters.snapshot">Snapshot</span>
+        <select id="filter-snapshot"><option value="" data-i18n="filters.live_buffer">— live buffer —</option></select>
       </label>
       <label class="compare-only hidden">
-        Baseline from
+        <span data-i18n="filters.baseline_from">Baseline from</span>
         <input type="datetime-local" id="baseline-from">
       </label>
       <label class="compare-only hidden">
-        Baseline to
+        <span data-i18n="filters.baseline_to">Baseline to</span>
         <input type="datetime-local" id="baseline-to">
       </label>
       <label class="compare-only hidden">
-        Baseline snapshot
+        <span data-i18n="filters.baseline_snapshot">Baseline snapshot</span>
         <select id="baseline-snapshot"><option value="">—</option></select>
       </label>
       <label class="compare-only hidden">
-        Baseline test
-        <select id="baseline-test-id"><option value="">Same as Test</option></select>
+        <span data-i18n="filters.baseline_test">Baseline test</span>
+        <select id="baseline-test-id"><option value="" data-i18n="filters.same_as_test">Same as Test</option></select>
       </label>
       <label class="compare-only hidden">
-        Baseline mode
+        <span data-i18n="filters.baseline_mode">Baseline mode</span>
         <select id="baseline-resolve-mode">
-          <option value="">Same as mode</option>
+          <option value="" data-i18n="filters.same_as_mode">Same as mode</option>
           <option value="system">system</option>
           <option value="absolute_fqdn">absolute_fqdn</option>
         </select>
       </label>
       <label class="compare-only hidden">
-        Compare from
+        <span data-i18n="filters.compare_from">Compare from</span>
         <input type="datetime-local" id="compare-from">
       </label>
       <label class="compare-only hidden">
-        Compare to
+        <span data-i18n="filters.compare_to">Compare to</span>
         <input type="datetime-local" id="compare-to">
       </label>
       <label class="compare-only hidden">
-        Compare snapshot
+        <span data-i18n="filters.compare_snapshot">Compare snapshot</span>
         <select id="compare-snapshot"><option value="">—</option></select>
       </label>
       <label class="compare-only hidden">
-        Compare test
-        <select id="compare-test-id"><option value="">Same as Test</option></select>
+        <span data-i18n="filters.compare_test">Compare test</span>
+        <select id="compare-test-id"><option value="" data-i18n="filters.same_as_test">Same as Test</option></select>
       </label>
       <label class="compare-only hidden">
-        Compare mode
+        <span data-i18n="filters.compare_mode">Compare mode</span>
         <select id="compare-resolve-mode">
-          <option value="">Same as mode</option>
+          <option value="" data-i18n="filters.same_as_mode">Same as mode</option>
           <option value="system">system</option>
           <option value="absolute_fqdn">absolute_fqdn</option>
         </select>
       </label>
     </div>
-    <div class="filter-chips" id="filter-chips" aria-label="Active filters"></div>
+    <div class="filter-chips" id="filter-chips" data-i18n-aria-label="filters.active_filters" aria-label="Active filters"></div>
     <div class="banner banner-error hidden" id="error-banner">
-      <span id="error-banner-text">Failed to load dashboard data.</span>
-      <button type="button" id="error-retry">Retry</button>
+      <span id="error-banner-text" data-i18n="states.load_failed">Failed to load dashboard data.</span>
+      <button type="button" id="error-retry" data-i18n="common.retry">Retry</button>
     </div>
     <div class="banner banner-warn hidden" id="warn-banner"></div>
     <div class="banner banner-info hidden" id="info-banner"></div>
   </header>
 
-  <nav class="sub-nav" id="sub-nav" aria-label="Dashboard sections">
-    <a href="#zone-status" class="sub-nav-link">Status</a>
-    <a href="#zone-diagnostics" class="sub-nav-link">Diagnostics</a>
-    <a href="#zone-drilldown" class="sub-nav-link">Drilldown</a>
+  <nav class="sub-nav" id="sub-nav" data-i18n-aria-label="dashboard.sections_nav" aria-label="Dashboard sections">
+    <a href="#zone-status" class="sub-nav-link" data-i18n="dashboard.zone_status">Status</a>
+    <a href="#zone-diagnostics" class="sub-nav-link" data-i18n="dashboard.zone_diagnostics">Diagnostics</a>
+    <a href="#zone-drilldown" class="sub-nav-link" data-i18n="dashboard.zone_drilldown">Drilldown</a>
   </nav>
 
   <main class="dashboard">
     <section id="zone-status" class="dashboard-zone">
-      <h2 class="zone-title">Status</h2>
+      <h2 class="zone-title" data-i18n="dashboard.zone_status">Status</h2>
       <div id="global-status-strip" class="global-status-strip" role="status" aria-live="polite">
         <span class="global-status-level" id="global-status-level">—</span>
         <ul class="global-status-signals" id="global-status-signals"></ul>
@@ -166,7 +170,7 @@
       <div id="resolver-context" class="resolver-context"></div>
       <section id="panel-overview" class="panel" data-panel="overview">
         <div class="panel-header">
-          <h3>Overview</h3>
+          <h3 data-i18n="dashboard.overview.title">Overview</h3>
           <span class="panel-badge hidden" id="badge-overview"></span>
         </div>
         <div class="panel-skeleton hidden" id="skeleton-overview"></div>
@@ -177,11 +181,11 @@
     </section>
 
     <section id="zone-diagnostics" class="dashboard-zone">
-      <h2 class="zone-title">Diagnostics</h2>
+      <h2 class="zone-title" data-i18n="dashboard.zone_diagnostics">Diagnostics</h2>
 
       <section id="panel-latency" class="panel" data-panel="latency">
         <div class="panel-header">
-          <h3>DNS Latency</h3>
+          <h3 data-i18n="dashboard.latency.title">DNS Latency</h3>
           <span class="panel-badge hidden" id="badge-latency"></span>
         </div>
         <div class="panel-skeleton hidden" id="skeleton-latency"></div>
@@ -200,7 +204,7 @@
 
       <section id="panel-edns" class="panel" data-panel="edns">
         <div class="panel-header">
-          <h3>EDNS Analytics</h3>
+          <h3 data-i18n="dashboard.edns.title">EDNS Analytics</h3>
           <span class="panel-badge hidden" id="badge-edns"></span>
         </div>
         <div class="panel-skeleton hidden" id="skeleton-edns"></div>
@@ -211,7 +215,7 @@
 
       <section id="panel-errors" class="panel" data-panel="errors">
         <div class="panel-header">
-          <h3>Error Analysis</h3>
+          <h3 data-i18n="dashboard.errors.title">Error Analysis</h3>
           <span class="panel-badge hidden" id="badge-errors"></span>
         </div>
         <div class="panel-skeleton hidden" id="skeleton-errors"></div>
@@ -221,7 +225,7 @@
           <div class="chart-container"><canvas id="chart-errors-resolver"></canvas></div>
         </div>
         <div class="table-wrap hidden" id="error-matrix-wrap">
-          <h4>Resolver × error class</h4>
+          <h4 data-i18n="dashboard.errors.matrix_title">Resolver × error class</h4>
           <table id="error-matrix-table">
             <thead><tr id="error-matrix-head"></tr></thead>
             <tbody id="error-matrix-body"></tbody>
@@ -231,7 +235,7 @@
 
       <section id="panel-garbage" class="panel" data-panel="garbage">
         <div class="panel-header">
-          <h3>Garbage / Noisy Queries</h3>
+          <h3 data-i18n="dashboard.garbage.title">Garbage / Noisy Queries</h3>
           <span class="panel-badge hidden" id="badge-garbage"></span>
         </div>
         <div class="panel-skeleton hidden" id="skeleton-garbage"></div>
@@ -243,7 +247,7 @@
 
       <section id="panel-cache" class="panel" data-panel="cache">
         <div class="panel-header">
-          <h3>Cache Behavior</h3>
+          <h3 data-i18n="dashboard.cache.title">Cache Behavior</h3>
           <span class="panel-badge hidden" id="badge-cache"></span>
         </div>
         <div class="panel-skeleton hidden" id="skeleton-cache"></div>
@@ -254,7 +258,7 @@
 
       <section id="panel-load" class="panel" data-panel="load">
         <div class="panel-header">
-          <h3>Load / Density</h3>
+          <h3 data-i18n="dashboard.load.title">Load / Density</h3>
           <span class="panel-badge hidden" id="badge-load"></span>
         </div>
         <div class="panel-skeleton hidden" id="skeleton-load"></div>
@@ -265,7 +269,7 @@
 
       <section id="panel-mtr" class="panel" data-panel="mtr">
         <div class="panel-header">
-          <h3>MTR Diagnostics</h3>
+          <h3 data-i18n="dashboard.mtr.title">MTR Diagnostics</h3>
           <span class="panel-badge hidden" id="badge-mtr"></span>
         </div>
         <div class="panel-skeleton hidden" id="skeleton-mtr"></div>
@@ -275,12 +279,12 @@
           <table id="mtr-table">
             <thead>
               <tr>
-                <th>Hop</th>
-                <th>Host</th>
-                <th>Loss %</th>
-                <th>Avg ms</th>
-                <th>Best</th>
-                <th>Worst</th>
+                <th data-i18n="mtr.hop">Hop</th>
+                <th data-i18n="mtr.host">Host</th>
+                <th data-i18n="mtr.loss_pct">Loss %</th>
+                <th data-i18n="mtr.avg_ms">Avg ms</th>
+                <th data-i18n="mtr.best">Best</th>
+                <th data-i18n="mtr.worst">Worst</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -290,11 +294,11 @@
     </section>
 
     <section id="zone-drilldown" class="dashboard-zone">
-      <h2 class="zone-title">Drilldown</h2>
+      <h2 class="zone-title" data-i18n="dashboard.zone_drilldown">Drilldown</h2>
 
       <section id="panel-records" class="panel" data-panel="records">
         <div class="panel-header">
-          <h3>DNS Record Drilldown</h3>
+          <h3 data-i18n="dashboard.records.title">DNS Record Drilldown</h3>
           <span class="panel-badge hidden" id="badge-records"></span>
         </div>
         <div class="panel-skeleton hidden" id="skeleton-records"></div>
@@ -303,14 +307,14 @@
           <table id="records-table">
             <thead>
               <tr>
-                <th data-sort="fqdn" class="sortable">FQDN</th>
-                <th data-sort="query_type" class="sortable">Type</th>
-                <th data-sort="resolve_mode" class="sortable">Mode</th>
-                <th data-sort="status" class="sortable">Status</th>
-                <th data-sort="queries" class="sortable">Queries</th>
-                <th data-sort="errors" class="sortable">Errors</th>
-                <th data-sort="avg_latency_ms" class="sortable">Avg latency (ms)</th>
-                <th>Actions</th>
+                <th data-sort="fqdn" class="sortable" data-i18n="records.fqdn">FQDN</th>
+                <th data-sort="query_type" class="sortable" data-i18n="records.type">Type</th>
+                <th data-sort="resolve_mode" class="sortable" data-i18n="records.mode">Mode</th>
+                <th data-sort="status" class="sortable" data-i18n="records.status">Status</th>
+                <th data-sort="queries" class="sortable" data-i18n="records.queries">Queries</th>
+                <th data-sort="errors" class="sortable" data-i18n="records.errors">Errors</th>
+                <th data-sort="avg_latency_ms" class="sortable" data-i18n="records.avg_latency">Avg latency (ms)</th>
+                <th data-i18n="common.actions">Actions</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -320,7 +324,7 @@
 
       <section id="panel-rankings" class="panel" data-panel="rankings">
         <div class="panel-header">
-          <h3>Rankings</h3>
+          <h3 data-i18n="dashboard.rankings.title">Rankings</h3>
           <span class="panel-badge hidden" id="badge-rankings"></span>
         </div>
         <div class="panel-skeleton hidden" id="skeleton-rankings"></div>
@@ -332,19 +336,19 @@
 
   <dialog id="events-modal" class="modal">
     <div class="modal-header">
-      <h3 id="events-modal-title">Recent events</h3>
-      <button type="button" id="events-modal-close" aria-label="Close">×</button>
+      <h3 id="events-modal-title" data-i18n="modals.recent_events">Recent events</h3>
+      <button type="button" id="events-modal-close" data-i18n-aria-label="common.close" aria-label="Close">×</button>
     </div>
     <div class="table-wrap">
       <table id="events-table">
         <thead>
           <tr>
-            <th>Time</th>
-            <th>Record</th>
-            <th>Type</th>
-            <th>Mode</th>
-            <th>Outcome</th>
-            <th>Latency</th>
+            <th data-i18n="modals.time">Time</th>
+            <th data-i18n="modals.record">Record</th>
+            <th data-i18n="modals.type">Type</th>
+            <th data-i18n="modals.mode">Mode</th>
+            <th data-i18n="modals.outcome">Outcome</th>
+            <th data-i18n="modals.latency">Latency</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -354,8 +358,8 @@
 
   <dialog id="diagnosis-modal" class="modal">
     <div class="modal-header">
-      <h3 id="diagnosis-modal-title">Test diagnosis</h3>
-      <button type="button" id="diagnosis-modal-close" aria-label="Close">×</button>
+      <h3 id="diagnosis-modal-title" data-i18n="modals.test_diagnosis">Test diagnosis</h3>
+      <button type="button" id="diagnosis-modal-close" data-i18n-aria-label="common.close" aria-label="Close">×</button>
     </div>
     <pre id="diagnosis-json" class="diagnosis-json"></pre>
   </dialog>
@@ -364,9 +368,20 @@
     window.DNS_DEBUG_UI = {
       basePath: {{ base_path | tojson }},
       refreshSeconds: {{ refresh_seconds }},
-      readonly: {{ readonly | tojson }}
+      readonly: {{ readonly | tojson }},
+      i18n: {
+        enabled: {{ i18n.enabled | tojson }},
+        defaultLang: {{ i18n.defaultLang | tojson }},
+        supportedLangs: {{ i18n.supportedLangs | tojson }},
+        localeStorage: {{ i18n.localeStorage | tojson }},
+        storageKey: "dns-debug-lang",
+        lang: {{ i18n.lang | tojson }},
+        messages: {{ i18n.messages | tojson }},
+        fallbackMessages: {{ i18n_en_messages | tojson }}
+      }
     };
   </script>
+  <script src="{{ base_path }}/static/js/i18n.js"></script>
   <script src="{{ base_path }}/static/js/dashboard.js"></script>
 </body>
 </html>

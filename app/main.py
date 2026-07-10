@@ -103,8 +103,12 @@ async def _start_background_runners(settings: Settings) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import asyncio
+
     settings = get_settings()
     setup_logging(settings.log_level)
+
+    cleanup_task: asyncio.Task | None = None
 
     snapshot = capture()
     set_snapshot(snapshot)
@@ -154,23 +158,73 @@ async def lifespan(app: FastAPI):
             },
         )
 
+    if settings.dns_debug_db_enabled:
+        from db import (
+            import_file_snapshots,
+            init_db_pool,
+            periodic_cleanup_loop,
+            run_migrations,
+            run_retention_cleanup,
+        )
+
+        await init_db_pool(settings)
+        await run_migrations()
+        await import_file_snapshots()
+        await run_retention_cleanup(settings)
+        if settings.dns_debug_db_cleanup_enabled:
+            cleanup_task = asyncio.create_task(periodic_cleanup_loop())
+        logger.info(
+            "PostgreSQL persistence enabled",
+            extra={
+                "event": "db_startup",
+                "extra": {
+                    "retention_days": settings.dns_debug_db_retention_days,
+                    "cleanup_interval_seconds": settings.dns_debug_db_cleanup_interval_seconds,
+                },
+            },
+        )
+    elif settings.snapshot_enabled and settings.dns_debug_db_cleanup_enabled:
+        from db.cleanup import periodic_cleanup_loop, run_file_retention_cleanup
+
+        await run_file_retention_cleanup(settings)
+        cleanup_task = asyncio.create_task(periodic_cleanup_loop())
+        logger.info(
+            "File snapshot retention enabled",
+            extra={
+                "event": "file_retention_startup",
+                "extra": {"retention_days": settings.dns_debug_db_retention_days},
+            },
+        )
+
     await _start_background_runners(settings)
 
     yield
 
     logger.info("Shutting down, cancelling active tests", extra={"event": "shutdown"})
-    import asyncio
+
+    if cleanup_task is not None:
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except asyncio.CancelledError:
+            pass
 
     await asyncio.gather(
         cancel_all_tests(timeout=settings.shutdown_timeout_seconds),
         cancel_mtr(timeout=settings.shutdown_timeout_seconds),
     )
+
+    if settings.dns_debug_db_enabled:
+        from db import close_db_pool
+
+        await close_db_pool()
+
     logger.info("Shutdown complete", extra={"event": "shutdown_complete"})
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="DNS Debugger", version="0.3.0", lifespan=lifespan)
+    app = FastAPI(title="DNS Debugger", version="0.5.0", lifespan=lifespan)
     register_exception_handlers(app)
 
     app.add_middleware(SecurityHeadersMiddleware)

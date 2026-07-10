@@ -172,6 +172,15 @@ async def run_mtr(
         parsed_hops=parsed_hops,
     )
 
+    result = await store.get_run(run_id)
+    if result:
+        try:
+            from db.repository import persist_mtr_run
+
+            await persist_mtr_run(result)
+        except Exception as exc:
+            logger.warning("MTR persistence hook failed for %s: %s", run_id, exc)
+
     metrics.record_mtr_run(status, exit_code, finished_at.timestamp())
 
     logger.info(

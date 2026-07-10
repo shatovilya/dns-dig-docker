@@ -27,6 +27,8 @@ flowchart TD
     s4 --> s3
     findings -->|no| s5[Stage 5: Release readiness]
     s5 --> docs[Sync AI docs]
+    docs --> rel[Release doc + CHANGELOG]
+    rel --> done[Release complete]
 ```
 
 ### When to apply each role
@@ -59,11 +61,11 @@ flowchart TD
 | 4. Fix pass | DNS engineer | `dns-debug` |
 | 5. Release readiness | All | — |
 
-**Release blockers:** P0 data/security; P1 misleading observability; P1 laptop breakage (1024–1440px); P1 tablet breakage (768px); missing state coverage; skipped UX audit or QA pass; stale docs.
+**Release blockers:** P0 data/security; P1 misleading observability; P1 laptop breakage (1024–1440px); P1 tablet breakage (768px); missing state coverage; skipped UX audit or QA pass; stale docs; missing `CHANGELOG.md` or `docs/releases/*`; version mismatch between `app/main.py` and CHANGELOG; partial RU localization or visible translation keys.
 
-**Incomplete task:** UI/UX/historical/compare changes shipped without updating QA skill, UX skill, relevant AI docs, or without completing pre-release Stages 1–3 (and Stage 4 when findings exist).
+**Incomplete task:** UI/UX/historical/compare/i18n changes shipped without updating QA skill, UX skill, relevant AI docs, without completing pre-release Stages 1–3 (and Stage 4 when findings exist), without EN+RU translation keys for new strings, or without release documentation (`CHANGELOG.md` + `docs/releases/X.Y.Z.md`).
 
-Operational runbook: `debugging-checklist.md` §10.
+Release playbook: [`docs/releases/README.md`](docs/releases/README.md). Operational runbook: `debugging-checklist.md` §10.
 
 ## Skill paths
 
@@ -95,9 +97,11 @@ When changing behavior, update relevant AI docs in the **same change**:
 | Compare mode logic or presentation | `qa-ui` + `ux-designer` skills, `debugging-checklist.md` |
 | MTR behavior | `debugging-checklist.md`, `dns-debug` skill |
 | New env variable | `AGENT.md`, `dns-debug` skill, `CLAUDE.md`, this file, rules |
+| UI i18n / new strings | `app/ui/static/i18n/en.json` + `ru.json`, `AGENT.md` localization section |
 | DNS logic / noise types | `dns-debug` skill, `AGENT.md` |
 | Operational flow | `debugging-checklist.md` |
 | Security / auth | `docs/SECURITY.md`, `AGENT.md`, rules |
+| UI/UX/i18n/workflow release | `CHANGELOG.md`, `docs/releases/X.Y.Z.md`, version in `app/main.py`, AI docs |
 
 Do not remove EDNS breakdown, per-resolver analysis, garbage accounting, MTR diagnostics, or UI sections without explicit user request.
 
@@ -106,12 +110,14 @@ Do not remove EDNS breakdown, per-resolver analysis, garbage accounting, MTR dia
 | Mode | Auto-refresh | Data source | Key params |
 |------|--------------|-------------|------------|
 | **Live** | Toggle ON by default (`DNS_DEBUG_UI_REFRESH_SECONDS`) | In-memory stores | `view_mode=live`; optional `from`/`to` for 15m/1h presets |
-| **Historical** | OFF | Event buffer or snapshot | `view_mode=historical`, `from`, `to`, `snapshot_id` |
+| **Historical** | OFF | Event buffer (in-process) or PostgreSQL/file snapshot | `view_mode=historical`, `from`, `to`, `snapshot_id`; **7-day PG retention** when DB enabled |
 | **Compare** | OFF | Server-side deltas | `GET /api/ui/compare` with baseline/comparison params incl. `baseline_test_id`, `compare_test_id`, `baseline_resolve_mode`, `compare_resolve_mode` |
 
 Dashboard uses **3-tier IA**: `zone-status` (global_status + KPI trends) → `zone-diagnostics` → `zone-drilldown`. Sticky sub-nav: Status | Diagnostics | Drilldown.
 
-Envelope fields (additive): `view_mode`, `data_source`, `time_range`, `retention`, `warnings`, `is_stale`, `global_status`, `kpi_extras`.
+Envelope fields (additive): `view_mode`, `data_source`, `storage_backend`, `time_range`, `retention` (incl. `db_enabled`, `db_retention_days`, `retention_window_from`), `warnings`, `is_stale`, `global_status`, `kpi_extras`.
+
+**Retention invariant:** `DNS_DEBUG_DB_RETENTION_DAYS` default **7** — agents must preserve cleanup behavior and retention-aware UX for history/compare features.
 
 Full UI spec: `AGENT.md` → Web UI section.
 

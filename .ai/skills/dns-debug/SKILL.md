@@ -28,7 +28,7 @@ Route by task type. UI work without QA/UX review is **incomplete**.
 | Dashboard IA, usability, states, filters, chart hierarchy, microcopy | [ux-designer](../ux-designer/SKILL.md) |
 | UI acceptance, regression, data correctness, live/historical/compare validation | [qa-ui](../qa-ui/SKILL.md) |
 
-**Complex dashboard work:** UX designer first (IA + states + microcopy) → implement backend + frontend → Stage 1 self-check → UX Stage 2 audit → QA Stage 3 → Stage 4 fix pass → release readiness → sync skills and AI docs.
+**Complex dashboard work:** UX designer first (IA + states + microcopy) → implement backend + frontend → Stage 1 self-check → UX Stage 2 audit → QA Stage 3 → Stage 4 fix pass → release readiness → release documentation (`CHANGELOG.md` + `docs/releases/X.Y.Z.md`) → sync skills and AI docs.
 
 **Compare mode changes:** update **both** `qa-ui` and `ux-designer` skills plus `debugging-checklist.md`.
 
@@ -61,6 +61,19 @@ Run after Stage 2/3 findings are filed:
 - [ ] Request UX re-review if layout, charts, filters, or states changed materially
 - [ ] Update fix pass notes in PR/MR: finding ID → resolution
 - [ ] Sync docs if behavior or copy changed during fix pass
+
+### Stage 5: Release documentation (after release readiness sign-off)
+
+Run after Stages 1–4 pass and release blockers are cleared:
+
+- [ ] Version bumped in `app/main.py` when semver changes (document rationale)
+- [ ] `CHANGELOG.md` entry added or updated for the release
+- [ ] `docs/releases/X.Y.Z.md` created with full release notes (10 sections per playbook)
+- [ ] Release summary lists UX, responsive, localization, workflow, and docs changes
+- [ ] Configuration / migration notes documented when env vars change
+- [ ] AI docs synced and reflected in release doc
+
+Playbook: [`docs/releases/README.md`](../../../docs/releases/README.md)
 
 ## Sibling references
 
@@ -276,7 +289,7 @@ flowchart TD
 | `templates/dashboard.html` | Jinja2 shell: KPI cards, 10 sections, filters, theme toggle |
 | `static/` | CSS, vanilla JS, Chart.js — poll every `DNS_DEBUG_UI_REFRESH_SECONDS` |
 
-UI env vars: `DNS_DEBUG_UI_ENABLED`, `DNS_DEBUG_UI_AUTH_ENABLED`, `DNS_DEBUG_UI_READONLY`, `DNS_DEBUG_UI_BASE_PATH`, `DNS_DEBUG_UI_REFRESH_SECONDS`.
+UI env vars: `DNS_DEBUG_UI_ENABLED`, `DNS_DEBUG_UI_AUTH_ENABLED`, `DNS_DEBUG_UI_READONLY`, `DNS_DEBUG_UI_BASE_PATH`, `DNS_DEBUG_UI_REFRESH_SECONDS`, `DNS_DEBUG_UI_I18N_*`.
 
 ## UI optional / readonly rules
 
@@ -284,6 +297,27 @@ UI env vars: `DNS_DEBUG_UI_ENABLED`, `DNS_DEBUG_UI_AUTH_ENABLED`, `DNS_DEBUG_UI_
 - Default `DNS_DEBUG_UI_READONLY=true` — no POST/DELETE from browser; control tests via core API.
 - `DNS_DEBUG_UI_AUTH_ENABLED=true` when UI enabled in production.
 - New env vars for UI must be documented in `AGENT.md`, this skill, and `.cursor/rules/dns-debug-project.mdc`.
+
+## UI localization (i18n)
+
+- Bundles: `app/ui/static/i18n/en.json`, `ru.json`; runtime: `app/ui/static/js/i18n.js`
+- Any new user-facing string → add key to **both** locale files; use `t()` in JS, `data-i18n` in templates
+- API keeps English `message` fallback; client translates `global_status.signals` by `code` + `params`
+- Missing RU strings = incomplete UI work; verify RU layout at 1024–1440px after label changes
+
+## PostgreSQL historical persistence
+
+When `DNS_DEBUG_DB_ENABLED=true` (default in `docker compose`):
+
+- **Module:** `app/db/` — pool, migrations, repository, extractors, cleanup
+- **Tables:** `historical_snapshots`, `test_runs`, `run_aggregates`, `resolver_aggregates`, `domain_aggregates`, `error_aggregates`, `edns_aggregates`, `mtr_runs`, `chart_buckets`
+- **Write path:** `save_test_snapshot()` → `persist_snapshot()`; MTR `finalize_run` → `persist_mtr_run()`
+- **Read path:** `PostgresSnapshotStore` for `/api/ui/snapshots` and `snapshot_id` panel loads
+- **Retention:** `DNS_DEBUG_DB_RETENTION_DAYS` (default **7**); cleanup at startup + `DNS_DEBUG_DB_CLEANUP_INTERVAL_SECONDS`
+- **Fallback:** `DNS_DEBUG_DB_ENABLED=false` uses `FileSnapshotStore` + `SNAPSHOT_RETENTION_COUNT`
+- **Not persisted:** raw query events (use snapshots for 7-day historical/compare)
+
+Schema changes: versioned SQL in `app/db/migrations/`; update this skill, `AGENT.md`, and release docs.
 
 ## Change checklist
 
@@ -303,7 +337,8 @@ Before merging DNS-, MTR-, UI-, or security-related changes:
 12. **Security docs sync** — auth/roles/limits changes update `docs/SECURITY.md`, `AGENT.md`, rules
 13. **Docs** — update `AGENT.md`, this skill, `metrics-reference.md`, or `debugging-checklist.md` if behavior changes
 14. **UI roles** — dashboard model changes (modes, filters, charts, states) also update `qa-ui` and `ux-designer` skills, `CURSOR.md`, and rules
-14. **QA/UX roles** — UI/historical/compare changes update `qa-ui/SKILL.md` and `ux-designer/SKILL.md`; run QA acceptance checklist
+15. **QA/UX roles** — UI/historical/compare changes update `qa-ui/SKILL.md` and `ux-designer/SKILL.md`; run QA acceptance checklist
+16. **PostgreSQL retention** — preserve 7-day default cleanup; document schema/env changes in release artifacts
 
 ## Safe modifications
 

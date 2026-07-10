@@ -168,6 +168,29 @@ class Settings(BaseSettings):
         "style-src 'self' 'unsafe-inline'; connect-src 'self'"
     )
 
+    # Web UI localization
+    dns_debug_ui_i18n_enabled: bool = True
+    dns_debug_ui_default_lang: str = "en"
+    dns_debug_ui_supported_langs: list[str] = ["en", "ru"]
+    dns_debug_ui_locale_storage_enabled: bool = True
+
+    @field_validator("dns_debug_ui_default_lang")
+    @classmethod
+    def normalize_default_lang(cls, v: str) -> str:
+        return (v or "en").strip().lower().split("-")[0]
+
+    @field_validator("dns_debug_ui_supported_langs", mode="before")
+    @classmethod
+    def parse_supported_langs(cls, v: Any) -> list[str]:
+        items = [(x or "en").strip().lower().split("-")[0] for x in _parse_str_list(v)]
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for lang in items:
+            if lang not in seen:
+                seen.add(lang)
+                deduped.append(lang)
+        return deduped or ["en", "ru"]
+
     @field_validator(
         "api_bearer_tokens",
         "api_keys",
@@ -216,6 +239,35 @@ class Settings(BaseSettings):
     snapshot_enabled: bool = True
     snapshot_dir: str = "data/snapshots"
     snapshot_retention_count: int = 20
+
+# PostgreSQL historical persistence (7-day retention by default; rotation via DNS_DEBUG_DB_RETENTION_DAYS)
+    dns_debug_db_enabled: bool = False
+    dns_debug_db_driver: str = "postgres"
+    dns_debug_db_host: str = "postgres"
+    dns_debug_db_port: int = 5432
+    dns_debug_db_name: str = "dns_debug"
+    dns_debug_db_user: str = "dns_debug"
+    dns_debug_db_password: str = "dns_debug"
+    dns_debug_db_sslmode: str = "disable"
+    dns_debug_db_retention_days: int = 7
+    dns_debug_db_cleanup_enabled: bool = True
+    dns_debug_db_cleanup_interval_seconds: int = 3600
+    dns_debug_db_import_files_on_startup: bool = True
+
+    @field_validator("dns_debug_db_retention_days")
+    @classmethod
+    def validate_dns_debug_db_retention_days(cls, v: int) -> int:
+        if not 1 <= v <= 365:
+            raise ValueError("dns_debug_db_retention_days must be between 1 and 365")
+        return v
+
+    @property
+    def database_dsn(self) -> str:
+        """Asyncpg-compatible DSN (password included — do not log)."""
+        return (
+            f"postgresql://{self.dns_debug_db_user}:{self.dns_debug_db_password}"
+            f"@{self.dns_debug_db_host}:{self.dns_debug_db_port}/{self.dns_debug_db_name}"
+        )
 
     @field_validator("mtr_service_port")
     @classmethod

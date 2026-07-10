@@ -1,0 +1,294 @@
+{
+  "common": {
+    "ok": "OK",
+    "retry": "Retry",
+    "close": "Close",
+    "theme": "Theme",
+    "theme_toggle": "Toggle theme",
+    "refresh": "Refresh",
+    "reset": "Reset",
+    "updated": "Updated",
+    "na": "N/A",
+    "readonly": "read-only",
+    "all": "All",
+    "actions": "Actions",
+    "level": {
+      "ok": "OK",
+      "degraded": "Degraded",
+      "critical": "Critical",
+      "error": "Error"
+    }
+  },
+  "dashboard": {
+    "page_title": "DNS Debug Dashboard",
+    "brand": "DNS Debug",
+    "zone_status": "Status",
+    "zone_diagnostics": "Diagnostics",
+    "zone_drilldown": "Drilldown",
+    "overview": {
+      "title": "Overview"
+    },
+    "latency": {
+      "title": "DNS Latency"
+    },
+    "edns": {
+      "title": "EDNS Analytics"
+    },
+    "errors": {
+      "title": "Error Analysis",
+      "matrix_title": "Resolver × error class"
+    },
+    "garbage": {
+      "title": "Garbage / Noisy Queries"
+    },
+    "cache": {
+      "title": "Cache Behavior"
+    },
+    "load": {
+      "title": "Load / Density"
+    },
+    "mtr": {
+      "title": "MTR Diagnostics"
+    },
+    "records": {
+      "title": "DNS Record Drilldown"
+    },
+    "rankings": {
+      "title": "Rankings"
+    },
+    "sections_nav": "Dashboard sections"
+  },
+  "filters": {
+    "view_mode": "View mode",
+    "mode": {
+      "live": "Live",
+      "historical": "Historical",
+      "compare": "Compare"
+    },
+    "window": "Window",
+    "window_session": "Session",
+    "window_15min": "Last 15 min",
+    "window_1hour": "Last 1 hour",
+    "search_placeholder": "Search FQDN…",
+    "search_sr": "Quick search",
+    "status": "Status",
+    "status_success": "Success",
+    "status_error": "Error",
+    "status_nxdomain": "NXDOMAIN",
+    "status_noisy": "Noisy",
+    "test": "Test",
+    "all_tests": "All tests",
+    "resolve_mode": "Resolve mode",
+    "query_type": "Query type",
+    "auto_refresh_on": "Auto-refresh ON",
+    "auto_refresh_off": "Auto-refresh OFF",
+    "auto_refresh_toggle": "Toggle auto-refresh",
+    "reset_filters": "Reset filters",
+    "refresh_data": "Refresh data",
+    "history_filters": "History & compare filters",
+    "history_filters_btn": "History ▾",
+    "active_filters": "Active filters",
+    "from": "From",
+    "to": "To",
+    "snapshot": "Snapshot",
+    "live_buffer": "— live buffer —",
+    "baseline_from": "Baseline from",
+    "baseline_to": "Baseline to",
+    "baseline_snapshot": "Baseline snapshot",
+    "baseline_test": "Baseline test",
+    "baseline_mode": "Baseline mode",
+    "compare_from": "Compare from",
+    "compare_to": "Compare to",
+    "compare_snapshot": "Compare snapshot",
+    "compare_test": "Compare test",
+    "compare_mode": "Compare mode",
+    "same_as_test": "Same as Test",
+    "same_as_mode": "Same as mode",
+    "chip_search": "Search: {{value}}",
+    "chip_status": "Status: {{value}}",
+    "chip_baseline_snapshot": "Baseline snapshot: {{value}}",
+    "chip_baseline_range": "Baseline: {{from}} – {{to}}",
+    "chip_compare_snapshot": "Comparison snapshot: {{value}}",
+    "chip_compare_range": "Comparison: {{from}} – {{to}}",
+    "chip_baseline_mode": "Baseline mode: {{value}}",
+    "chip_compare_mode": "Compare mode: {{value}}",
+    "chip_test": "Test: {{value}}",
+    "chip_mode": "Mode: {{value}}",
+    "chip_type": "Type: {{value}}",
+    "chip_range": "Range: {{from}} – {{to}}",
+    "chip_snapshot": "Snapshot: {{value}}",
+    "language": "Language",
+    "lang_en": "EN",
+    "lang_ru": "RU"
+  },
+  "charts": {
+    "p50": "p50",
+    "p95": "p95",
+    "p99": "p99",
+    "queries": "Queries",
+    "errors": "Errors",
+    "count": "Count",
+    "baseline": "Baseline",
+    "comparison": "Comparison",
+    "baseline_p95": "Baseline p95",
+    "comparison_p95": "Comparison p95",
+    "p95_ms": "p95 ms",
+    "error_rate": "Error rate",
+    "edns_note": "dns_runner does not instrument EDNS levels yet; all queries are counted under edns0."
+  },
+  "kpis": {
+    "p50": "p50",
+    "p95": "p95",
+    "p99": "p99",
+    "error_rate": "Error rate",
+    "nxdomain_rate": "NXDOMAIN rate",
+    "noisy_ratio": "Noisy ratio",
+    "cache_hit_heuristic": "Cache hit (heuristic)",
+    "mtr_degraded": "MTR degraded",
+    "total_queries": "Total queries",
+    "success_pct": "Success %",
+    "active_tests": "Active tests",
+    "completed": "Completed",
+    "errors": "Errors",
+    "nxdomain": "NXDOMAIN",
+    "samples": "Samples",
+    "configured_rps": "Configured RPS",
+    "actual_qps": "Actual QPS",
+    "saturation": "Saturation",
+    "success_rate": "Success rate",
+    "possible_hits": "Possible hits (heuristic)",
+    "hit_ratio": "Hit ratio",
+    "repeat_keys": "Repeat keys",
+    "tooltip_p50": "Median DNS latency (non-search probes)",
+    "tooltip_p95": "95th percentile latency",
+    "tooltip_p99": "99th percentile latency",
+    "tooltip_error_rate": "Share of queries with errors/timeouts",
+    "tooltip_nxdomain_rate": "NXDOMAIN share of queries",
+    "tooltip_noisy_ratio": "Garbage + search probe share",
+    "tooltip_cache_hit": "Heuristic cache metric — not real Docker DNS cache",
+    "tooltip_mtr_degraded": "MTR runs with non-ok verdict"
+  },
+  "compare": {
+    "delta_errors": "Δ Errors",
+    "delta_success_pct": "Δ Success %",
+    "delta_error_qps": "Δ Error QPS",
+    "delta_p50": "Δ p50 ms",
+    "delta_p95": "Δ p95 ms",
+    "delta_p99": "Δ p99 ms",
+    "delta_garbage_pct": "Δ Garbage %",
+    "delta_cache_hit_pct": "Δ Cache hit %",
+    "delta_error_rate": "Δ Error rate",
+    "delta_qps": "Δ QPS",
+    "delta_top_domain_err": "Δ Top domain err %",
+    "suffix": " · Compare · baseline vs comparison",
+    "select_scopes": "Select baseline and comparison snapshots or time ranges to compare.",
+    "choose_scopes": "Choose baseline and comparison scopes above.",
+    "note": {
+      "missing_value": "missing value",
+      "baseline_zero": "baseline is zero"
+    }
+  },
+  "history": {
+    "snapshot_prefix": "snapshot",
+    "no_snapshots": "No saved snapshots yet. Complete a DNS test to create historical snapshots.",
+    "select_scope": "Select a snapshot or time range for historical data.",
+    "no_scope": "No historical scope selected. Pick a snapshot or time range.",
+    "data_source": {
+      "live_memory": "live memory",
+      "event_buffer": "event buffer",
+      "snapshot": "snapshot",
+      "database": "database"
+    },
+    "warnings": {
+      "event_buffer_truncated": "Data may be incomplete — event buffer limited to {{limit}} events per test.",
+      "snapshot_retention_at_limit": "Snapshot retention at limit ({{limit}}). Older runs were pruned.",
+      "mtr_history_at_limit": "MTR timeline capped at {{limit}} runs.",
+      "db_retention_info": "Historical data retained for {{days}} days in local PostgreSQL.",
+      "retention_days_info": "Historical data retained for {{days}} days (file snapshots).",
+      "outside_retention_window": "Selected time range is outside the {{days}}-day retention window. Older data is not available.",
+      "db_unavailable": "PostgreSQL persistence is enabled but unavailable — historical data may be incomplete.",
+      "stale_historical": "Historical view may not include all queries — use a saved snapshot when available."
+    }
+  },
+  "states": {
+    "load_failed": "Failed to load dashboard data.",
+    "partial_metrics": "Partial metrics — see warnings above.",
+    "no_queries": "No queries in the selected scope. Widen filters or run a DNS test.",
+    "no_latency": "No latency samples for the selected range.",
+    "no_edns": "No EDNS query data in this range.",
+    "no_errors_good": "No errors in the selected range — good sign.",
+    "no_errors_compare_good": "No errors in either range — good sign.",
+    "no_garbage": "No garbage/noisy query data in this range.",
+    "no_records_filters": "No records match the current filters.",
+    "no_records_search": "No records match search/status filters.",
+    "no_load": "No load data for the selected range.",
+    "no_rankings": "No ranking data for the selected range.",
+    "tests_running": "Tests running: {{progress}}",
+    "cache_disclaimer": "Heuristic only — based on repeat-query latency deltas. This does NOT represent real Docker embedded DNS cache hits or misses.",
+    "diagnosis_failed": "Failed to load diagnosis: {{status}}"
+  },
+  "resolver": {
+    "nameservers": "Nameservers",
+    "search_domains": "Search domains",
+    "ndots": "ndots"
+  },
+  "garbage": {
+    "useful": "Useful",
+    "garbage": "Garbage",
+    "garbage_ratio": "Garbage ratio",
+    "top_noisy_domains": "Top noisy domains"
+  },
+  "mtr": {
+    "not_enabled": "MTR not enabled. Set MTR_ENABLED=true to collect TCP path diagnostics.",
+    "not_enabled_short": "MTR not enabled",
+    "no_runs": "No MTR runs yet. Trigger POST /mtr or enable periodic MTR.",
+    "verdict": "Verdict",
+    "truncated": "Older runs truncated",
+    "hop": "Hop",
+    "host": "Host",
+    "loss_pct": "Loss %",
+    "avg_ms": "Avg ms",
+    "best": "Best",
+    "worst": "Worst",
+    "resolver": "Resolver"
+  },
+  "records": {
+    "fqdn": "FQDN",
+    "type": "Type",
+    "mode": "Mode",
+    "status": "Status",
+    "queries": "Queries",
+    "errors": "Errors",
+    "avg_latency": "Avg latency (ms)",
+    "events": "Events",
+    "diagnosis": "Diagnosis"
+  },
+  "rankings": {
+    "resolvers": "Resolvers",
+    "domains": "Domains",
+    "query_types": "Query types",
+    "mtr_targets": "MTR targets"
+  },
+  "modals": {
+    "recent_events": "Recent events",
+    "recent_events_for": "Recent events: {{record}}",
+    "test_diagnosis": "Test diagnosis",
+    "diagnosis_for": "Diagnosis: {{testId}}",
+    "time": "Time",
+    "record": "Record",
+    "type": "Type",
+    "mode": "Mode",
+    "outcome": "Outcome",
+    "latency": "Latency"
+  },
+  "signals": {
+    "mtr_packet_loss": "MTR verdict: {{mtr_verdict}}",
+    "error_storm": "Error QPS {{error_qps}} exceeds storm threshold",
+    "high_error_rate": "Error rate {{error_rate}} is critically elevated",
+    "elevated_errors": "Error rate {{error_rate}} above threshold {{threshold}}",
+    "latency_p95_high": "p95 latency {{p95_ms}} ms elevated",
+    "noisy_ratio_high": "Garbage ratio {{garbage_ratio}} above {{threshold}}",
+    "mtr_unstable": "MTR reports unstable path",
+    "no_data": "No queries in selected scope"
+  }
+}

@@ -5,6 +5,7 @@ from typing import Any, Literal
 from fastapi import Query
 
 from config import Settings, get_settings
+from retention import retention_cutoff, retention_days
 from stats_store import QueryAttempt, TestState
 
 ViewMode = Literal["live", "historical", "compare"]
@@ -217,24 +218,77 @@ def filter_attempts(tests: list[TestState], filters: UIFilters) -> list[QueryAtt
     return attempts
 
 
-def collect_warnings(tests: list[TestState], settings: Settings | None = None) -> list[str]:
+async def get_snapshot_count(settings: Settings | None = None) -> int:
+    settings = settings or get_settings()
+    if not settings.snapshot_enabled:
+        return 0
+    try:
+        from snapshot_store import get_snapshot_store
+
+        metas = await get_snapshot_store().list_snapshots()
+        return len(metas)
+    except Exception:
+        return 0
+
+
+def _retention_window_from(settings: Settings) -> str:
+    return retention_cutoff(settings).isoformat()
+
+
+def _is_outside_retention_window(filters: UIFilters, settings: Settings) -> bool:
+    if not settings.snapshot_enabled:
+        return False
+    cutoff = retention_cutoff(settings)
+    for ts in (
+        filters.from_ts,
+        filters.to_ts,
+        filters.baseline_from_ts,
+        filters.baseline_to_ts,
+        filters.compare_from_ts,
+        filters.compare_to_ts,
+    ):
+        if ts and ts < cutoff:
+            return True
+    return False
+
+
+async def collect_warnings_async(
+    tests: list[TestState],
+    settings: Settings | None = None,
+    filters: UIFilters | None = None,
+) -> list[str]:
     settings = settings or get_settings()
     warnings: list[str] = []
     for test in tests:
         if len(test.events) >= settings.event_buffer_size:
             warnings.append("event_buffer_truncated")
             break
-    snapshot_store_count = 0
-    if settings.snapshot_enabled:
-        try:
-            from snapshot_store import get_snapshot_store
 
-            snapshot_store_count = len(get_snapshot_store().list_snapshots())
-            if snapshot_store_count >= settings.snapshot_retention_count:
-                warnings.append("snapshot_retention_at_limit")
-        except OSError:
-            pass
+    if settings.dns_debug_db_enabled:
+        from db.connection import is_db_available
+
+        if not is_db_available():
+            warnings.append("db_unavailable")
+    elif settings.snapshot_enabled:
+        snapshot_store_count = await get_snapshot_count(settings)
+        if snapshot_store_count >= settings.snapshot_retention_count:
+            warnings.append("snapshot_retention_at_limit")
+
+    if filters and _is_outside_retention_window(filters, settings):
+        warnings.append("outside_retention_window")
+
     return list(dict.fromkeys(warnings))
+
+
+def collect_warnings(tests: list[TestState], settings: Settings | None = None) -> list[str]:
+    """Sync fallback — event buffer warnings only."""
+    settings = settings or get_settings()
+    warnings: list[str] = []
+    for test in tests:
+        if len(test.events) >= settings.event_buffer_size:
+            warnings.append("event_buffer_truncated")
+            break
+    return warnings
 
 
 def resolve_data_source(filters: UIFilters) -> str:
@@ -245,10 +299,25 @@ def resolve_data_source(filters: UIFilters) -> str:
     return "live_memory"
 
 
-def envelope(filters: UIFilters, settings: Settings | None = None, **payload: Any) -> dict[str, Any]:
+def resolve_storage_backend(settings: Settings, filters: UIFilters) -> str | None:
+    if not filters.snapshot_id:
+        return None
+    if settings.dns_debug_db_enabled:
+        return "postgres"
+    return "file"
+
+
+def envelope(
+    filters: UIFilters,
+    settings: Settings | None = None,
+    *,
+    snapshot_count: int | None = None,
+    **payload: Any,
+) -> dict[str, Any]:
     settings = settings or get_settings()
     warnings = payload.pop("warnings", None)
     is_stale = payload.pop("is_stale", False)
+    snapshot_count = payload.pop("snapshot_count", None)
     if warnings is None:
         warnings = []
 
@@ -259,29 +328,33 @@ def envelope(filters: UIFilters, settings: Settings | None = None, **payload: An
     if filters.snapshot_id:
         time_range["snapshot_id"] = filters.snapshot_id
 
-    snapshot_count = 0
-    if settings.snapshot_enabled:
-        try:
-            from snapshot_store import get_snapshot_store
+    if snapshot_count is None:
+        snapshot_count = 0
 
-            snapshot_count = len(get_snapshot_store().list_snapshots())
-        except OSError:
-            snapshot_count = 0
+    retention: dict[str, Any] = {
+        "event_buffer_size": settings.event_buffer_size,
+        "snapshot_count": snapshot_count,
+        "snapshot_retention_count": settings.snapshot_retention_count,
+        "mtr_max_history": settings.mtr_max_history,
+        "db_enabled": settings.dns_debug_db_enabled,
+        "db_retention_days": settings.dns_debug_db_retention_days,
+        "retention_days": retention_days(settings),
+        "retention_window_from": _retention_window_from(settings),
+    }
 
-    return {
+    result = {
         "last_update": datetime.now(timezone.utc).isoformat(),
         "test_id": filters.test_id,
         "view_mode": filters.view_mode,
         "data_source": resolve_data_source(filters),
         "time_range": time_range,
         "filters_applied": filters.applied(),
-        "retention": {
-            "event_buffer_size": settings.event_buffer_size,
-            "snapshot_count": snapshot_count,
-            "snapshot_retention_count": settings.snapshot_retention_count,
-            "mtr_max_history": settings.mtr_max_history,
-        },
+        "retention": retention,
         "warnings": warnings,
         "is_stale": is_stale,
         **payload,
     }
+    backend = resolve_storage_backend(settings, filters)
+    if backend:
+        result["storage_backend"] = backend
+    return result

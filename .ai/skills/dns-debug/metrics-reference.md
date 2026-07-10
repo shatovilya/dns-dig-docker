@@ -258,6 +258,21 @@ This does **not** read Docker embedded DNS cache state. Use as a weak signal onl
 | `init_from_snapshot` | `configured_nameservers`, `search_domains_count`, `configured_ndots`, `worst_case_resolve_budget_ms` |
 | `set_active_tests` | `active_tests` |
 | `record_mtr_run` | `mtr_last_run_timestamp`, `mtr_last_exit_code`, `mtr_runs_total` |
+| `record_db_write` | `db_write_total` |
+| `record_db_write_error` | `db_write_errors_total` |
+| `record_db_cleanup` | `db_cleanup_runs_total` |
+| `record_db_cleanup_deleted` | `db_cleanup_deleted_rows_total` |
+
+---
+
+## PostgreSQL persistence metrics (v0.4.0+)
+
+| Metric | Type | Labels | Purpose |
+|--------|------|--------|---------|
+| `dns_debug_db_write_total` | Counter | `entity` | Successful DB writes (`snapshot`, `mtr`) |
+| `dns_debug_db_write_errors_total` | Counter | `entity`, `error_class` | Failed DB writes |
+| `dns_debug_db_cleanup_runs_total` | Counter | `status` | Retention cleanup runs |
+| `dns_debug_db_cleanup_deleted_rows_total` | Counter | `table` | Rows deleted per cleanup |
 
 ---
 

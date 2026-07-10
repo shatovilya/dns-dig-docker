@@ -99,6 +99,10 @@ body {
 
 .controls-group-actions {
   flex: 0 1 auto;
+  flex-wrap: wrap;
+  min-width: 0;
+  gap: 0.35rem;
+  align-items: flex-end;
 }
 
 .controls-primary {
@@ -118,6 +122,11 @@ body {
   font-size: 0.7rem;
   color: var(--muted);
   gap: 0.15rem;
+  min-width: 0;
+}
+
+.controls label > span:first-child {
+  line-height: 1.2;
 }
 
 .controls select,
@@ -157,6 +166,30 @@ body {
 }
 
 .mode-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.lang-switcher {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.lang-btn {
+  border: none;
+  border-radius: 0;
+  background: var(--bg);
+  padding: 0.3rem 0.45rem;
+  min-width: 2.25rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.lang-btn.active {
   background: var(--accent);
   color: #fff;
 }
@@ -425,6 +458,7 @@ body.is-loading .panel {
 
   .controls label {
     font-size: 0.65rem;
+    white-space: normal;
   }
 
   .controls select,
@@ -504,6 +538,9 @@ body[data-view-mode="live"] .compare-only {
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  word-break: break-word;
+  line-height: 1.25;
+  hyphens: auto;
 }
 
 .kpi .value {

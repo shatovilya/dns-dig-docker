@@ -3,9 +3,10 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from config import Settings, get_settings
+from retention import is_within_retention, parse_snapshot_timestamp, retention_cutoff, retention_days
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,19 @@ def _snapshot_filename(snapshot_id: str) -> str:
     return f"{safe}.json"
 
 
-class SnapshotStore:
+class SnapshotStoreProtocol(Protocol):
+    def make_snapshot_id(self, test_id: str) -> str: ...
+
+    async def save(self, snapshot_id: str, payload: dict[str, Any]) -> str: ...
+
+    async def get(self, snapshot_id: str) -> dict[str, Any] | None: ...
+
+    async def list_snapshots(self) -> list[SnapshotMeta]: ...
+
+    async def prune(self) -> int: ...
+
+
+class FileSnapshotStore:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._dir = Path(settings.snapshot_dir)
@@ -55,38 +68,48 @@ class SnapshotStore:
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         return f"{test_id}_{ts}"
 
-    def save(self, snapshot_id: str, payload: dict[str, Any]) -> Path:
+    async def save(self, snapshot_id: str, payload: dict[str, Any]) -> str:
         directory = self._ensure_dir()
         path = directory / _snapshot_filename(snapshot_id)
         path.write_text(json.dumps(payload, default=str, indent=2), encoding="utf-8")
-        self.prune()
-        return path
+        await self.prune()
+        return str(path)
 
-    def get(self, snapshot_id: str) -> dict[str, Any] | None:
+    async def get(self, snapshot_id: str) -> dict[str, Any] | None:
         path = self._dir / _snapshot_filename(snapshot_id)
-        if not path.is_file():
-            # fallback: scan for matching snapshot_id inside files
+        data: dict[str, Any] | None = None
+        if path.is_file():
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError) as exc:
+                logger.warning("Failed to read snapshot %s: %s", snapshot_id, exc)
+                return None
+        else:
             for candidate in self._dir.glob("*.json"):
                 try:
-                    data = json.loads(candidate.read_text(encoding="utf-8"))
+                    candidate_data = json.loads(candidate.read_text(encoding="utf-8"))
                 except (json.JSONDecodeError, OSError):
                     continue
-                if data.get("snapshot_id") == snapshot_id:
-                    return data
+                if candidate_data.get("snapshot_id") == snapshot_id:
+                    data = candidate_data
+                    break
+        if not data:
             return None
-        try:
-            return json.loads(path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError) as exc:
-            logger.warning("Failed to read snapshot %s: %s", snapshot_id, exc)
+        created = parse_snapshot_timestamp(data.get("created_at"))
+        if not is_within_retention(created, self.settings):
             return None
+        return data
 
-    def list_snapshots(self) -> list[SnapshotMeta]:
+    async def list_snapshots(self) -> list[SnapshotMeta]:
         directory = self._ensure_dir()
         metas: list[SnapshotMeta] = []
         for path in sorted(directory.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError):
+                continue
+            created = parse_snapshot_timestamp(data.get("created_at"))
+            if not is_within_retention(created, self.settings):
                 continue
             try:
                 size = path.stat().st_size
@@ -106,27 +129,166 @@ class SnapshotStore:
             )
         return metas
 
-    def prune(self) -> int:
-        metas = self.list_snapshots()
-        limit = self.settings.snapshot_retention_count
+    async def prune(self) -> int:
+        directory = self._ensure_dir()
+        cutoff = retention_cutoff(self.settings)
         removed = 0
+
+        # Day-based rotation via DNS_DEBUG_DB_RETENTION_DAYS
+        for path in directory.glob("*.json"):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                continue
+            created = parse_snapshot_timestamp(data.get("created_at"))
+            if created is not None and created < cutoff:
+                try:
+                    path.unlink(missing_ok=True)
+                    removed += 1
+                except OSError as exc:
+                    logger.warning("Failed to prune aged snapshot %s: %s", path, exc)
+
+        # Secondary count cap (SNAPSHOT_RETENTION_COUNT)
+        metas = await self.list_snapshots()
+        limit = self.settings.snapshot_retention_count
         for meta in metas[limit:]:
             try:
                 Path(meta.file_path).unlink(missing_ok=True)
                 removed += 1
             except OSError as exc:
                 logger.warning("Failed to prune snapshot %s: %s", meta.snapshot_id, exc)
+        if removed:
+            logger.info(
+                "File snapshot retention prune completed",
+                extra={
+                    "event": "file_snapshot_prune",
+                    "extra": {"removed": removed, "retention_days": retention_days(self.settings)},
+                },
+            )
         return removed
 
 
-_store: SnapshotStore | None = None
+class PostgresSnapshotStore:
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+
+    def make_snapshot_id(self, test_id: str) -> str:
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        return f"{test_id}_{ts}"
+
+    async def save(self, snapshot_id: str, payload: dict[str, Any]) -> str:
+        from db.repository import persist_snapshot
+
+        await persist_snapshot(payload)
+        return f"postgres:{snapshot_id}"
+
+    async def get(self, snapshot_id: str) -> dict[str, Any] | None:
+        from db.connection import get_db_pool
+
+        pool = get_db_pool()
+        if pool is None:
+            return None
+
+        cutoff = retention_cutoff(self.settings)
+        row = await pool.fetchrow(
+            """
+            SELECT snapshot_id, test_id, test_name, created_at, started_at, finished_at,
+                   summary, panels
+            FROM historical_snapshots
+            WHERE snapshot_id = $1 AND created_at >= $2
+            """,
+            snapshot_id,
+            cutoff,
+        )
+        if not row:
+            return None
+        return _row_to_payload(row)
+
+    async def list_snapshots(self) -> list[SnapshotMeta]:
+        from db.connection import get_db_pool
+
+        pool = get_db_pool()
+        if pool is None:
+            return []
+
+        cutoff = retention_cutoff(self.settings)
+        rows = await pool.fetch(
+            """
+            SELECT snapshot_id, test_id, test_name, created_at, started_at, finished_at,
+                   payload_size_bytes
+            FROM historical_snapshots
+            WHERE created_at >= $1
+            ORDER BY created_at DESC
+            """,
+            cutoff,
+        )
+        return [
+            SnapshotMeta(
+                snapshot_id=row["snapshot_id"],
+                test_id=row["test_id"],
+                test_name=row["test_name"],
+                created_at=_iso(row["created_at"]),
+                started_at=_iso(row["started_at"]) if row["started_at"] else None,
+                finished_at=_iso(row["finished_at"]) if row["finished_at"] else None,
+                file_path="postgres",
+                file_size_bytes=row["payload_size_bytes"] or 0,
+            )
+            for row in rows
+        ]
+
+    async def prune(self) -> int:
+        # Time-based retention handled by cleanup job.
+        return 0
 
 
-def get_snapshot_store() -> SnapshotStore:
+def _iso(value: Any) -> str:
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.isoformat()
+    return str(value)
+
+
+def _row_to_payload(row: Any) -> dict[str, Any]:
+    summary = row["summary"]
+    panels = row["panels"]
+    if isinstance(summary, str):
+        summary = json.loads(summary)
+    if isinstance(panels, str):
+        panels = json.loads(panels)
+    return {
+        "snapshot_id": row["snapshot_id"],
+        "test_id": row["test_id"],
+        "test_name": row["test_name"],
+        "created_at": _iso(row["created_at"]),
+        "started_at": _iso(row["started_at"]) if row["started_at"] else None,
+        "finished_at": _iso(row["finished_at"]) if row["finished_at"] else None,
+        "summary": summary,
+        "panels": panels,
+    }
+
+
+# Backward-compatible alias for tests
+SnapshotStore = FileSnapshotStore
+
+_store: SnapshotStoreProtocol | None = None
+
+
+def get_snapshot_store() -> SnapshotStoreProtocol:
     global _store
     if _store is None:
-        _store = SnapshotStore(get_settings())
+        settings = get_settings()
+        if settings.dns_debug_db_enabled:
+            _store = PostgresSnapshotStore(settings)
+        else:
+            _store = FileSnapshotStore(settings)
     return _store
+
+
+def reset_snapshot_store() -> None:
+    """Reset singleton (tests)."""
+    global _store
+    _store = None
 
 
 async def save_test_snapshot(test_id: str) -> str | None:
@@ -173,6 +335,6 @@ async def save_test_snapshot(test_id: str) -> str | None:
         "summary": summary.model_dump() if hasattr(summary, "model_dump") else summary,
         "panels": panels,
     }
-    snapshot_store.save(snapshot_id, payload)
+    await snapshot_store.save(snapshot_id, payload)
     logger.info("Saved UI snapshot %s for test %s", snapshot_id, test_id)
     return snapshot_id

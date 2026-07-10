@@ -1,5 +1,7 @@
 # DNS Debug — DNS diagnostics inside a Docker container
 
+**Current release:** [v0.5.0](docs/releases/0.5.0.md) — see [CHANGELOG.md](CHANGELOG.md) and [docs/releases/](docs/releases/README.md) for release history and playbook.
+
 A service for observing DNS behavior **from inside a container** through the standard Docker DNS (`127.0.0.11`). It does not change anything on the host and does not replace the resolver.
 
 Helps you understand: which extra queries are generated, how many errors and NXDOMAIN responses occur, what the latency looks like, and how normal resolution differs from absolute FQDN (with a trailing dot).
@@ -40,6 +42,30 @@ curl -s http://localhost:8080/health
 curl -s http://localhost:8080/resolver
 ```
 
+`docker compose up` starts **PostgreSQL** (internal service) and the app with `DNS_DEBUG_DB_ENABLED=true` by default. Historical UI data is stored in PostgreSQL with a **7-day retention** policy (configurable via `DNS_DEBUG_DB_RETENTION_DAYS`). Cleanup runs at startup and every hour (`DNS_DEBUG_DB_CLEANUP_INTERVAL_SECONDS`).
+
+To run without PostgreSQL (file-only snapshots, backward compatible):
+
+```env
+DNS_DEBUG_DB_ENABLED=false
+```
+
+### PostgreSQL historical persistence
+
+| Setting | Default | Purpose |
+|---------|---------|---------|
+| `DNS_DEBUG_DB_ENABLED` | `true` in compose | Use PostgreSQL for historical snapshots and aggregates |
+| `DNS_DEBUG_DB_RETENTION_DAYS` | `7` | **Day-based rotation:** delete persisted data older than N days (1–365) |
+| `DNS_DEBUG_DB_CLEANUP_ENABLED` | `true` | Automatic retention cleanup |
+| `DNS_DEBUG_DB_CLEANUP_INTERVAL_SECONDS` | `3600` | Periodic cleanup interval |
+| `DNS_DEBUG_DB_IMPORT_FILES_ON_STARTUP` | `true` | Import existing JSON snapshots from `SNAPSHOT_DIR` into PG |
+
+Postgres is **not** published to the host by default (internal Docker network only). Data volume: `postgres_data`.
+
+Retention deletes `historical_snapshots` older than the window (child aggregate tables cascade). Orphan MTR rows without snapshots are also pruned. Live DNS tests, Prometheus metrics, and in-memory event buffers are unaffected.
+
+See [AGENT.md](AGENT.md) for full env var list and schema overview.
+
 ### Optional Web UI
 
 Enable in `.env`:
@@ -58,7 +84,7 @@ http://localhost:8080/dns-debug/
 
 JSON API: `http://localhost:8080/dns-debug/api/ui/overview`
 
-**View modes:** Live (auto-refresh toggle, KPI trends, 3-tier IA), Historical (grouped snapshots, docker volume `./data/snapshots`), Compare (full panel deltas via `/api/ui/compare`). See [AGENT.md](AGENT.md) and AI skills [qa-ui](.ai/skills/qa-ui/SKILL.md) / [ux-designer](.ai/skills/ux-designer/SKILL.md). **Pre-release UX workflow** (5 stages before shipping UI changes): [AGENT.md → Pre-release UX workflow](AGENT.md#pre-release-ux-workflow), [debugging-checklist.md §10](.ai/skills/dns-debug/debugging-checklist.md).
+**View modes:** Live (auto-refresh toggle, KPI trends, 3-tier IA), Historical (PostgreSQL-backed snapshots with **7-day retention**, or file snapshots when DB disabled), Compare (full panel deltas via `/api/ui/compare`). **Languages:** English and Russian — header switcher `EN | RU` (`DNS_DEBUG_UI_I18N_*`). See [AGENT.md](AGENT.md) and AI skills [qa-ui](.ai/skills/qa-ui/SKILL.md) / [ux-designer](.ai/skills/ux-designer/SKILL.md). **Pre-release UX workflow** (5 stages before shipping UI changes): [AGENT.md → Pre-release UX workflow](AGENT.md#pre-release-ux-workflow), [debugging-checklist.md §10](.ai/skills/dns-debug/debugging-checklist.md).
 
 External service port: **8080**.
 
@@ -341,6 +367,10 @@ Copy `.env.example` to `.env`.
 | `DNS_DEBUG_UI_ENABLED` | `false` | Enable built-in Web UI at `/dns-debug/` |
 | `DNS_DEBUG_UI_READONLY` | `true` | View-only dashboard (no POST/DELETE from browser) |
 | `DNS_DEBUG_UI_REFRESH_SECONDS` | `5` | Client polling interval for UI panels |
+| `DNS_DEBUG_UI_I18N_ENABLED` | `true` | Enable EN/RU UI localization |
+| `DNS_DEBUG_UI_DEFAULT_LANG` | `en` | Default UI language |
+| `DNS_DEBUG_UI_SUPPORTED_LANGS` | `en,ru` | Supported UI languages |
+| `DNS_DEBUG_UI_LOCALE_STORAGE_ENABLED` | `true` | Persist language in browser |
 
 ## API security
 

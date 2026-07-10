@@ -1,0 +1,294 @@
+{
+  "common": {
+    "ok": "OK",
+    "retry": "Повторить",
+    "close": "Закрыть",
+    "theme": "Тема",
+    "theme_toggle": "Переключить тему",
+    "refresh": "Обновить",
+    "reset": "Сброс",
+    "updated": "Обновлено",
+    "na": "Н/Д",
+    "readonly": "только чтение",
+    "all": "Все",
+    "actions": "Действия",
+    "level": {
+      "ok": "OK",
+      "degraded": "Ухудшено",
+      "critical": "Критично",
+      "error": "Ошибка"
+    }
+  },
+  "dashboard": {
+    "page_title": "DNS Debug — панель",
+    "brand": "DNS Debug",
+    "zone_status": "Статус",
+    "zone_diagnostics": "Диагностика",
+    "zone_drilldown": "Детализация",
+    "overview": {
+      "title": "Обзор"
+    },
+    "latency": {
+      "title": "Задержка DNS"
+    },
+    "edns": {
+      "title": "Аналитика EDNS"
+    },
+    "errors": {
+      "title": "Анализ ошибок",
+      "matrix_title": "Резолвер × класс ошибки"
+    },
+    "garbage": {
+      "title": "Мусорные / шумные запросы"
+    },
+    "cache": {
+      "title": "Поведение кэша"
+    },
+    "load": {
+      "title": "Нагрузка / плотность"
+    },
+    "mtr": {
+      "title": "Диагностика MTR"
+    },
+    "records": {
+      "title": "Детализация DNS-записей"
+    },
+    "rankings": {
+      "title": "Рейтинги"
+    },
+    "sections_nav": "Разделы панели"
+  },
+  "filters": {
+    "view_mode": "Режим просмотра",
+    "mode": {
+      "live": "Онлайн",
+      "historical": "История",
+      "compare": "Сравнение"
+    },
+    "window": "Окно",
+    "window_session": "Сессия",
+    "window_15min": "Последние 15 мин",
+    "window_1hour": "Последний час",
+    "search_placeholder": "Поиск FQDN…",
+    "search_sr": "Быстрый поиск",
+    "status": "Статус",
+    "status_success": "Успех",
+    "status_error": "Ошибка",
+    "status_nxdomain": "NXDOMAIN",
+    "status_noisy": "Шумный",
+    "test": "Тест",
+    "all_tests": "Все тесты",
+    "resolve_mode": "Режим резолвинга",
+    "query_type": "Тип запроса",
+    "auto_refresh_on": "Автообновление ВКЛ",
+    "auto_refresh_off": "Автообновление ВЫКЛ",
+    "auto_refresh_toggle": "Переключить автообновление",
+    "reset_filters": "Сбросить фильтры",
+    "refresh_data": "Обновить данные",
+    "history_filters": "Фильтры истории и сравнения",
+    "history_filters_btn": "История ▾",
+    "active_filters": "Активные фильтры",
+    "from": "С",
+    "to": "По",
+    "snapshot": "Снимок",
+    "live_buffer": "— буфер онлайн —",
+    "baseline_from": "Базовый период с",
+    "baseline_to": "Базовый период по",
+    "baseline_snapshot": "Базовый снимок",
+    "baseline_test": "Базовый тест",
+    "baseline_mode": "Базовый режим",
+    "compare_from": "Сравнение с",
+    "compare_to": "Сравнение по",
+    "compare_snapshot": "Снимок сравнения",
+    "compare_test": "Тест сравнения",
+    "compare_mode": "Режим сравнения",
+    "same_as_test": "Как в тесте",
+    "same_as_mode": "Как в режиме",
+    "chip_search": "Поиск: {{value}}",
+    "chip_status": "Статус: {{value}}",
+    "chip_baseline_snapshot": "Базовый снимок: {{value}}",
+    "chip_baseline_range": "Базовый период: {{from}} – {{to}}",
+    "chip_compare_snapshot": "Снимок сравнения: {{value}}",
+    "chip_compare_range": "Сравнение: {{from}} – {{to}}",
+    "chip_baseline_mode": "Базовый режим: {{value}}",
+    "chip_compare_mode": "Режим сравнения: {{value}}",
+    "chip_test": "Тест: {{value}}",
+    "chip_mode": "Режим: {{value}}",
+    "chip_type": "Тип: {{value}}",
+    "chip_range": "Диапазон: {{from}} – {{to}}",
+    "chip_snapshot": "Снимок: {{value}}",
+    "language": "Язык",
+    "lang_en": "EN",
+    "lang_ru": "RU"
+  },
+  "charts": {
+    "p50": "p50",
+    "p95": "p95",
+    "p99": "p99",
+    "queries": "Запросы",
+    "errors": "Ошибки",
+    "count": "Количество",
+    "baseline": "Базовый",
+    "comparison": "Сравнение",
+    "baseline_p95": "Базовый p95",
+    "comparison_p95": "Сравнение p95",
+    "p95_ms": "p95, мс",
+    "error_rate": "Доля ошибок",
+    "edns_note": "dns_runner пока не инструментирует уровни EDNS; все запросы учитываются как edns0."
+  },
+  "kpis": {
+    "p50": "p50",
+    "p95": "p95",
+    "p99": "p99",
+    "error_rate": "Доля ошибок",
+    "nxdomain_rate": "Доля NXDOMAIN",
+    "noisy_ratio": "Доля шума",
+    "cache_hit_heuristic": "Попадание в кэш (эвристика)",
+    "mtr_degraded": "MTR деградирован",
+    "total_queries": "Всего запросов",
+    "success_pct": "Успех %",
+    "active_tests": "Активные тесты",
+    "completed": "Завершено",
+    "errors": "Ошибки",
+    "nxdomain": "NXDOMAIN",
+    "samples": "Выборка",
+    "configured_rps": "Заданный RPS",
+    "actual_qps": "Фактический QPS",
+    "saturation": "Насыщение",
+    "success_rate": "Успешность",
+    "possible_hits": "Возможные попадания (эвристика)",
+    "hit_ratio": "Доля попаданий",
+    "repeat_keys": "Повторяющиеся ключи",
+    "tooltip_p50": "Медианная задержка DNS (без search-проб)",
+    "tooltip_p95": "95-й перцентиль задержки",
+    "tooltip_p99": "99-й перцентиль задержки",
+    "tooltip_error_rate": "Доля запросов с ошибками/таймаутами",
+    "tooltip_nxdomain_rate": "Доля NXDOMAIN среди запросов",
+    "tooltip_noisy_ratio": "Доля мусорных запросов и search-проб",
+    "tooltip_cache_hit": "Эвристика кэша — не реальный кэш Docker DNS",
+    "tooltip_mtr_degraded": "Запуски MTR с вердиктом не OK"
+  },
+  "compare": {
+    "delta_errors": "Δ Ошибки",
+    "delta_success_pct": "Δ Успех %",
+    "delta_error_qps": "Δ Ошибки QPS",
+    "delta_p50": "Δ p50, мс",
+    "delta_p95": "Δ p95, мс",
+    "delta_p99": "Δ p99, мс",
+    "delta_garbage_pct": "Δ Мусор %",
+    "delta_cache_hit_pct": "Δ Кэш %",
+    "delta_error_rate": "Δ Доля ошибок",
+    "delta_qps": "Δ QPS",
+    "delta_top_domain_err": "Δ Ошибки домена",
+    "suffix": " · Сравнение · базовый vs сравнение",
+    "select_scopes": "Выберите базовый и сравниваемый снимки или диапазоны времени.",
+    "choose_scopes": "Укажите базовый и сравниваемый периоды выше.",
+    "note": {
+      "missing_value": "нет значения",
+      "baseline_zero": "базовое значение ноль"
+    }
+  },
+  "history": {
+    "snapshot_prefix": "снимок",
+    "no_snapshots": "Сохранённых снимков пока нет. Завершите DNS-тест для создания снимка.",
+    "select_scope": "Выберите снимок или диапазон времени для исторических данных.",
+    "no_scope": "Исторический период не выбран. Укажите снимок или диапазон.",
+    "data_source": {
+      "live_memory": "память онлайн",
+      "event_buffer": "буфер событий",
+      "snapshot": "снимок",
+      "database": "база данных"
+    },
+    "warnings": {
+      "event_buffer_truncated": "Данные могут быть неполными — буфер событий ограничен {{limit}} событиями на тест.",
+      "snapshot_retention_at_limit": "Лимит хранения снимков ({{limit}}). Старые запуски удалены.",
+      "mtr_history_at_limit": "История MTR ограничена {{limit}} запусками.",
+      "db_retention_info": "Исторические данные хранятся {{days}} дн. в локальном PostgreSQL.",
+      "retention_days_info": "Исторические данные хранятся {{days}} дн. (файловые снимки).",
+      "outside_retention_window": "Выбранный диапазон вне окна хранения {{days}} дн. Старые данные недоступны.",
+      "db_unavailable": "PostgreSQL включён, но недоступен — исторические данные могут быть неполными.",
+      "stale_historical": "Исторический вид может не включать все запросы — используйте сохранённый снимок."
+    }
+  },
+  "states": {
+    "load_failed": "Не удалось загрузить данные панели.",
+    "partial_metrics": "Метрики частичные — см. предупреждения выше.",
+    "no_queries": "Нет запросов в выбранном диапазоне. Расширьте фильтры или запустите DNS-тест.",
+    "no_latency": "Нет данных о задержке для выбранного диапазона.",
+    "no_edns": "Нет данных EDNS для этого диапазона.",
+    "no_errors_good": "Ошибок в выбранном диапазоне нет — хороший знак.",
+    "no_errors_compare_good": "Ошибок в обоих диапазонах нет — хороший знак.",
+    "no_garbage": "Нет данных о мусорных/шумных запросах.",
+    "no_records_filters": "Нет записей по текущим фильтрам.",
+    "no_records_search": "Нет записей по поиску/статусу.",
+    "no_load": "Нет данных о нагрузке для выбранного диапазона.",
+    "no_rankings": "Нет данных рейтингов для выбранного диапазона.",
+    "tests_running": "Тесты выполняются: {{progress}}",
+    "cache_disclaimer": "Только эвристика — на основе дельт задержки повторных запросов. НЕ отражает реальные попадания/промахи встроенного DNS Docker.",
+    "diagnosis_failed": "Не удалось загрузить диагноз: {{status}}"
+  },
+  "resolver": {
+    "nameservers": "Серверы имён",
+    "search_domains": "Search-домены",
+    "ndots": "ndots"
+  },
+  "garbage": {
+    "useful": "Полезные",
+    "garbage": "Мусорные",
+    "garbage_ratio": "Доля мусора",
+    "top_noisy_domains": "Топ шумных доменов"
+  },
+  "mtr": {
+    "not_enabled": "MTR отключён. Установите MTR_ENABLED=true для TCP-диагностики.",
+    "not_enabled_short": "MTR отключён",
+    "no_runs": "Запусков MTR пока нет. Вызовите POST /mtr или включите периодический MTR.",
+    "verdict": "Вердикт",
+    "truncated": "Старые запуски обрезаны",
+    "hop": "Хоп",
+    "host": "Хост",
+    "loss_pct": "Потери %",
+    "avg_ms": "Сред., мс",
+    "best": "Лучший",
+    "worst": "Худший",
+    "resolver": "Резолвер"
+  },
+  "records": {
+    "fqdn": "FQDN",
+    "type": "Тип",
+    "mode": "Режим",
+    "status": "Статус",
+    "queries": "Запросы",
+    "errors": "Ошибки",
+    "avg_latency": "Сред. задержка (мс)",
+    "events": "События",
+    "diagnosis": "Диагноз"
+  },
+  "rankings": {
+    "resolvers": "Резолверы",
+    "domains": "Домены",
+    "query_types": "Типы запросов",
+    "mtr_targets": "Цели MTR"
+  },
+  "modals": {
+    "recent_events": "Недавние события",
+    "recent_events_for": "Недавние события: {{record}}",
+    "test_diagnosis": "Диагноз теста",
+    "diagnosis_for": "Диагноз: {{testId}}",
+    "time": "Время",
+    "record": "Запись",
+    "type": "Тип",
+    "mode": "Режим",
+    "outcome": "Исход",
+    "latency": "Задержка"
+  },
+  "signals": {
+    "mtr_packet_loss": "Вердикт MTR: {{mtr_verdict}}",
+    "error_storm": "Ошибки QPS {{error_qps}} превышают порог шторма",
+    "high_error_rate": "Доля ошибок {{error_rate}} критически высока",
+    "elevated_errors": "Доля ошибок {{error_rate}} выше порога {{threshold}}",
+    "latency_p95_high": "p95 задержка {{p95_ms}} мс повышена",
+    "noisy_ratio_high": "Доля мусора {{garbage_ratio}} выше {{threshold}}",
+    "mtr_unstable": "MTR сообщает о нестабильном пути",
+    "no_data": "Нет запросов в выбранном диапазоне"
+  }
+}

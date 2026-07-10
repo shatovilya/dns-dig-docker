@@ -26,6 +26,8 @@ app/stats_store.py       → aggregate attempts
 app/ndots_analytics.py   → ndots/search analytics + diagnosis
 app/mtr_runner.py        → MTR subprocess runs
 app/mtr_store.py         → MTR run history
+app/db/                  → PostgreSQL persistence (snapshots, aggregates, 7-day retention)
+app/snapshot_store.py    → snapshot store (file or PostgreSQL backend)
 app/api.py               → REST API + UI JSON routes (when enabled)
 app/metrics.py           → Prometheus
 app/ui/                  → optional dashboard (templates, static, aggregators)
@@ -58,7 +60,7 @@ Search suffix probes are **diagnostic** — they measure overhead, not primary a
 
 - Dashboard: `http://localhost:8080/dns-debug/` (default `DNS_DEBUG_UI_BASE_PATH`)
 - JSON: `/dns-debug/api/ui/overview`, `/dns-latency`, `/edns`, `/errors`, `/garbage`, `/cache`, `/records`, `/load`, `/mtr`, `/rankings`, `/events`, `/snapshots`, `/compare`
-- View modes: **Live** (auto-refresh toggle, KPI trends), **Historical** (grouped snapshots, retention banners), **Compare** (full panel server-side deltas)
+- View modes: **Live** (auto-refresh toggle, KPI trends), **Historical** (PostgreSQL snapshots, **7-day retention**), **Compare** (full panel server-side deltas)
 - Dashboard IA: 3-tier zones (`zone-status`, `zone-diagnostics`, `zone-drilldown`) with sticky sub-nav
 
 Set `DNS_DEBUG_UI_ENABLED=false` to run core-only (no UI routes).
@@ -89,6 +91,8 @@ Select a role by task type. UI/historical/compare changes without QA and UX revi
 
 **Incomplete task definition:** shipping UI/UX/historical/compare changes without updating the QA skill, UX skill, and relevant AI docs (`AGENT.md`, `debugging-checklist.md`, `CLAUDE.md`, `CURSOR.md`, rules) or without completing the pre-release workflow.
 
+**Release documentation:** UI/UX/i18n/workflow/docs changes must ship with release artifacts (`CHANGELOG.md` + `docs/releases/X.Y.Z.md`). Do not stop at code-only changes. Package user-visible and process-visible changes into release form per [`docs/releases/README.md`](docs/releases/README.md). Stage 5 pre-release ≠ release complete without release doc.
+
 ### Doc sync triggers
 
 | Change type | Update |
@@ -97,7 +101,8 @@ Select a role by task type. UI/historical/compare changes without QA and UX revi
 | New UI JSON fields or envelope | `AGENT.md`, `debugging-checklist.md`, `qa-ui` skill |
 | Dashboard IA or state design | `ux-designer` skill, `AGENT.md` UI section |
 | Metrics added/renamed | `metrics-reference.md`, `dns-debug` skill |
-| New env variable | `AGENT.md`, `dns-debug` skill, `CLAUDE.md`, `CURSOR.md`, rules |
+| Persistence / retention / PostgreSQL | `dns-debug` skill, `AGENT.md`, `debugging-checklist.md`, `metrics-reference.md`, rules |
+| UI/UX/i18n/workflow release | `CHANGELOG.md`, `docs/releases/X.Y.Z.md`, version in `app/main.py`, AI docs |
 
 See `CURSOR.md` for Cursor-specific role routing and the full mandatory sync table.
 
@@ -119,6 +124,11 @@ See `CURSOR.md` for Cursor-specific role routing and the full mandatory sync tab
 14. **UI tasks need QA/UX review** — historical/compare/filter/chart changes require both skills updated and validation; complete pre-release workflow Stages 1–3 minimum.
 15. **Sync on dashboard changes** — update `qa-ui/SKILL.md`, `ux-designer/SKILL.md`, `AGENT.md`, `debugging-checklist.md`, rules, this file, `CURSOR.md`.
 16. **Pre-release workflow** — UI changes require 5-stage workflow (self-check → UX audit → QA release readiness → fix pass → release sign-off); see `AGENT.md`.
+17. **Release documentation** — treat `CHANGELOG.md` + `docs/releases/X.Y.Z.md` as mandatory deliverable; do not stop at code changes only; see `AGENT.md` → Release documentation.
+18. **PostgreSQL retention** — default **7-day** historical retention (`DNS_DEBUG_DB_RETENTION_DAYS`); do not bypass cleanup or break local-postgres dev model without docs sync.
+19. **Storage changes** — schema/config/persistence changes require `AGENT.md`, skills, rules, and release doc updates.
+20. **UI localization** — treat EN+RU strings as part of UI completeness; update `en.json` + `ru.json` with every user-facing change; verify RU layout, not only EN.
+21. **Missing RU strings** — incomplete work; never show raw translation keys in the dashboard.
 
 ## Safe changes
 

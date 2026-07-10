@@ -91,6 +91,28 @@ mtr_runs_total = Counter(
     ["status"],
 )
 
+# PostgreSQL persistence observability
+db_write_total = Counter(
+    "dns_debug_db_write_total",
+    "Successful PostgreSQL persistence writes",
+    ["entity"],
+)
+db_write_errors_total = Counter(
+    "dns_debug_db_write_errors_total",
+    "Failed PostgreSQL persistence writes",
+    ["entity", "error_class"],
+)
+db_cleanup_runs_total = Counter(
+    "dns_debug_db_cleanup_runs_total",
+    "Retention cleanup runs",
+    ["status"],
+)
+db_cleanup_deleted_rows_total = Counter(
+    "dns_debug_db_cleanup_deleted_rows_total",
+    "Rows deleted by retention cleanup",
+    ["table"],
+)
+
 
 def init_from_snapshot(
     nameserver_count: int,
@@ -165,3 +187,20 @@ def record_mtr_run(status: str, exit_code: int | None, finished_timestamp: float
     mtr_last_run_timestamp.set(finished_timestamp)
     mtr_last_exit_code.set(exit_code if exit_code is not None else -1)
     mtr_runs_total.labels(status=status).inc()
+
+
+def record_db_write(entity: str) -> None:
+    db_write_total.labels(entity=entity).inc()
+
+
+def record_db_write_error(entity: str, error_class: str) -> None:
+    db_write_errors_total.labels(entity=entity, error_class=error_class).inc()
+
+
+def record_db_cleanup(status: str) -> None:
+    db_cleanup_runs_total.labels(status=status).inc()
+
+
+def record_db_cleanup_deleted(table: str, count: int) -> None:
+    if count > 0:
+        db_cleanup_deleted_rows_total.labels(table=table).inc(count)

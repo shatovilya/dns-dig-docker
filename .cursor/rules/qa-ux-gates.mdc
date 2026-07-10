@@ -37,6 +37,9 @@ Enforcement rules for role routing and documentation sync on Web UI changes. Ful
 12. **No critical UX defects** — no open P0/P1 UX or observability findings at release
 13. **No broken laptop/tablet** — core triage flow intact at 1024–1440px and 768px
 14. **State design + docs sync** — loading/empty/error/stale/retention on changed panels; pre-release workflow sections synced in skills, `AGENT.md`, `debugging-checklist.md`, `CLAUDE.md`, `CURSOR.md`, rules
+15. **i18n completeness** — new UI strings in EN + RU; no raw translation keys in UI; Historical/Compare fully localized; RU responsive check at laptop widths
+16. **Release documentation** — `CHANGELOG.md` + `docs/releases/X.Y.Z.md` updated; version in `app/main.py` synced; release summary lists UX, responsive, localization, and docs changes
+17. **PostgreSQL retention** — history/compare features must respect `DNS_DEBUG_DB_RETENTION_DAYS`; no feature ships without retention messaging when DB enabled
 
 ## Prohibited without gates
 
@@ -47,6 +50,10 @@ Enforcement rules for role routing and documentation sync on Web UI changes. Ful
 - Breaking additive JSON contracts on `/api/ui/*` without explicit approval
 - Shipping UI changes without Stage 2 UX audit and Stage 3 QA release readiness
 - Releasing with open P1 responsive laptop/tablet breakage on core triage flow
+- Shipping UI/UX/i18n/workflow changes without `CHANGELOG.md` and `docs/releases/X.Y.Z.md` update
+- Shipping UI changes without EN + RU translation keys for new user-facing strings
+- Marking UI work complete with partial RU localization or raw `signals.*` keys visible
+- Marking a release complete with version mismatch between `app/main.py` and CHANGELOG
 
 ## Doc sync (same change as code)
 
@@ -56,5 +63,6 @@ Enforcement rules for role routing and documentation sync on Web UI changes. Ful
 | Dashboard IA or states | `ux-designer`, `AGENT.md` UI section |
 | New UI endpoints or envelope fields | `AGENT.md`, `debugging-checklist.md`, `qa-ui` |
 | New env var | `AGENT.md`, `dns-debug` skill, `CLAUDE.md`, `CURSOR.md`, `dns-debug-project.mdc` |
+| UI/UX/i18n/workflow release | `CHANGELOG.md`, `docs/releases/X.Y.Z.md`, version in `app/main.py`, AI docs |
 
 Routing is centralized in `AGENT.md` + `CURSOR.md` — do not create duplicate `AGENTS.md`.

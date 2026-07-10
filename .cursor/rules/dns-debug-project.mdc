@@ -62,14 +62,16 @@ Key extension points: `dns_runner._resolve`, `_classify_noise`, `expand_work_ite
 - Gated by `DNS_DEBUG_UI_ENABLED` — when false, no UI routes, static mounts, or `/api/ui/*`
 - Default `DNS_DEBUG_UI_READONLY=true` — no POST/DELETE from browser; control tests via core API
 - Mount under `DNS_DEBUG_UI_BASE_PATH` (default `/dns-debug`) on same FastAPI app
-- Env vars: `DNS_DEBUG_UI_PORT`, `DNS_DEBUG_UI_BIND`, `DNS_DEBUG_UI_REFRESH_SECONDS`
+- Env vars: `DNS_DEBUG_UI_PORT`, `DNS_DEBUG_UI_BIND`, `DNS_DEBUG_UI_REFRESH_SECONDS`, `DNS_DEBUG_UI_I18N_*`
+- **i18n:** all new user-facing UI strings via `app/ui/static/i18n/en.json` + `ru.json` and `t()` / `data-i18n` — never hardcode in templates/JS
+- Verify RU layout impact at 1024–1440px when changing labels or filters
 - Prefer Jinja2 + vanilla JS + Chart.js; no heavy SPA build pipeline
-- UI reads from `stats_store`, `mtr_store`, metrics registry, persisted snapshots in `data/snapshots/`
+- UI reads from `stats_store`, `mtr_store`, metrics registry, and historical persistence (`app/db/` PostgreSQL when `DNS_DEBUG_DB_ENABLED=true`, else `data/snapshots/` JSON files)
 - Never imply heuristic cache UI cards show real Docker DNS cache hits
 - UI is for developer, SRE, QA, and analyst — not a required dependency for tests
 - Any Web UI change must update UI panel descriptions in `AGENT.md` and `debugging-checklist.md`
 - Dashboard supports **live**, **historical**, and **compare** view modes — see `AGENT.md` UI spec
-- Historical mode uses in-memory event buffer (`from`/`to`) or persisted snapshots (`SNAPSHOT_*` env vars)
+- Historical mode uses in-memory event buffer (`from`/`to`) or persisted snapshots (PostgreSQL with **7-day retention** when DB enabled, or `SNAPSHOT_*` file mode)
 - Compare mode uses server-side `/api/ui/compare` deltas — never client-only delta math for KPIs
 
 ## QA / UX gates
@@ -89,11 +91,11 @@ Major UI work requires role-appropriate review before the task is complete:
 | Pre-release UX audit | Stage 2 UX audit deliverable (`ux-designer` skill) |
 | Responsive review | QA 8-width checklist; laptop breakage (1024–1440px) = P1 blocker |
 | Chart/layout QA | Chart readability and layout hierarchy at laptop widths |
-| Release readiness | No open P0/P1; Stages 1–4 complete; docs synced |
+| Release readiness | No open P0/P1; Stages 1–4 complete; docs synced; release artifact updated |
 
-**Incomplete:** visual or behavioral UI changes without state coverage; history/compare without retention messaging; compare without delta verification; UI shipped without pre-release workflow (Stages 1–3); open P1 responsive laptop/tablet breakage.
+**Incomplete:** visual or behavioral UI changes without state coverage; history/compare without retention messaging; compare without delta verification; UI shipped without pre-release workflow (Stages 1–3); open P1 responsive laptop/tablet breakage; UI/UX/i18n/workflow changes without `CHANGELOG.md` and `docs/releases/X.Y.Z.md`.
 
-See `.cursor/rules/qa-ux-gates.mdc` for enforcement rules and doc sync requirements.
+Release playbook: [`docs/releases/README.md`](docs/releases/README.md). See `.cursor/rules/qa-ux-gates.mdc` for enforcement rules and doc sync requirements.
 
 ## Documentation sync requirements
 
@@ -107,8 +109,10 @@ When changing behavior, update relevant AI docs:
 | Dashboard IA or state design | `ux-designer` skill, `AGENT.md` UI section |
 | MTR behavior | `debugging-checklist.md`, `SKILL.md` |
 | New env variable | `AGENT.md`, `SKILL.md`, `CLAUDE.md`, `CURSOR.md`, this file |
+| UI i18n / new user-facing strings | `app/ui/static/i18n/en.json` + `ru.json`, `AGENT.md` localization section |
 | DNS logic / noise types | `SKILL.md`, `AGENT.md` |
 | Operational flow | `debugging-checklist.md` |
+| UI/UX/i18n/workflow release | `CHANGELOG.md`, `docs/releases/X.Y.Z.md`, version in `app/main.py`, AI docs |
 
 Do not remove EDNS breakdown, per-resolver analysis, or MTR diagnostics from the observability model.
 
@@ -121,6 +125,15 @@ Do not remove EDNS breakdown, per-resolver analysis, or MTR diagnostics from the
 `/overview`, `/dns-latency`, `/edns`, `/errors`, `/garbage`, `/cache`, `/records`, `/load`, `/mtr`, `/rankings`, `/snapshots`, `/snapshots/{id}`, `/compare`, `/snapshots`, `/snapshots/{id}`, `/compare`
 
 **HTML:** `GET {DNS_DEBUG_UI_BASE_PATH}/` (e.g. `/dns-debug/`)
+
+## PostgreSQL persistence rules
+
+- Historical data defaults to **local PostgreSQL** with **7-day retention** (`DNS_DEBUG_DB_RETENTION_DAYS`)
+- Retention cleanup must run automatically (startup + periodic); do not bypass silently
+- No new history feature without retention-aware UX and docs sync
+- Schema/config/storage changes require `AGENT.md`, skills, rules, and release doc updates
+- `DNS_DEBUG_DB_ENABLED=false` preserves file-based snapshot mode for backward compatibility
+- Do not expose PostgreSQL port externally by default; credentials only via env
 
 ## Trade-offs and compatibility
 

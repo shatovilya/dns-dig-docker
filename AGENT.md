@@ -182,11 +182,48 @@ The Web UI is **not** part of the core DNS engine. It is a read-mostly dashboard
 | `DNS_DEBUG_UI_BASE_PATH` | `/dns-debug` | Base path for dashboard page and static assets |
 | `DNS_DEBUG_UI_READONLY` | `true` | UI is view-only; test control stays on core API |
 | `DNS_DEBUG_UI_REFRESH_SECONDS` | `5` | Client polling interval for `/api/ui/*` (live mode only) |
+| `DNS_DEBUG_UI_I18N_ENABLED` | `true` | Enable EN/RU localization layer and language switcher |
+| `DNS_DEBUG_UI_DEFAULT_LANG` | `en` | Default UI language when no stored preference |
+| `DNS_DEBUG_UI_SUPPORTED_LANGS` | `en,ru` | Comma-separated allowlist of UI languages |
+| `DNS_DEBUG_UI_LOCALE_STORAGE_ENABLED` | `true` | Persist language choice in browser `localStorage` (`dns-debug-lang`) |
 | `SNAPSHOT_ENABLED` | `true` | Persist aggregated UI snapshots when tests complete |
-| `SNAPSHOT_DIR` | `data/snapshots` | Directory for historical snapshot JSON files |
-| `SNAPSHOT_RETENTION_COUNT` | `20` | Max snapshots kept on disk (oldest pruned) |
+| `SNAPSHOT_DIR` | `data/snapshots` | Directory for historical snapshot JSON files (import source when DB enabled) |
+| `SNAPSHOT_RETENTION_COUNT` | `20` | Max snapshots kept on disk when `DNS_DEBUG_DB_ENABLED=false` (count-based prune) |
+| `DNS_DEBUG_DB_ENABLED` | `false` (`true` in compose) | PostgreSQL historical persistence |
+| `DNS_DEBUG_DB_HOST` | `postgres` | PostgreSQL host |
+| `DNS_DEBUG_DB_PORT` | `5432` | PostgreSQL port |
+| `DNS_DEBUG_DB_NAME` | `dns_debug` | Database name |
+| `DNS_DEBUG_DB_USER` | `dns_debug` | Database user |
+| `DNS_DEBUG_DB_PASSWORD` | `dns_debug` | Database password (never log) |
+| `DNS_DEBUG_DB_SSLMODE` | `disable` | SSL mode |
+| `DNS_DEBUG_DB_RETENTION_DAYS` | `7` | **Product invariant:** max age of persisted historical data |
+| `DNS_DEBUG_DB_CLEANUP_ENABLED` | `true` | Automatic retention cleanup |
+| `DNS_DEBUG_DB_CLEANUP_INTERVAL_SECONDS` | `3600` | Periodic cleanup interval |
+| `DNS_DEBUG_DB_IMPORT_FILES_ON_STARTUP` | `true` | Import JSON snapshots from `SNAPSHOT_DIR` into PG |
 
 When `DNS_DEBUG_UI_ENABLED=false`: no UI routes, no static mount, no `/api/ui/*`.
+
+### Localization (i18n)
+
+The Web UI supports **English (`en`)** and **Russian (`ru`)** via a lightweight client-side layer — no SPA bundler.
+
+| Component | Path / role |
+|-----------|-------------|
+| Translation bundles | `app/ui/static/i18n/en.json`, `ru.json` — namespace groups: `common`, `dashboard`, `filters`, `charts`, `kpis`, `compare`, `history`, `states`, `signals`, … |
+| Client runtime | `app/ui/static/js/i18n.js` — `DnsDebugI18n.t()`, `formatPercent()`, `formatNumber()`, `applyDom()` |
+| Server injection | `ui/i18n.py` + `router.py` — preloads active locale into `window.DNS_DEBUG_UI.i18n` for FOUC-free first paint |
+| Language switcher | Header `EN \| RU` toggle; switches without full page reload |
+
+**Rules for agents:**
+
+1. **Never hardcode** new user-facing UI strings in `dashboard.html` or `dashboard.js` — add keys to **both** `en.json` and `ru.json`.
+2. Use `data-i18n` / `data-i18n-title` / `data-i18n-placeholder` in templates; use `t("namespace.key", params)` in JS.
+3. API messages (`global_status.signals`, warnings) stay English in JSON for backward compatibility; client translates by stable `code` + additive `params`.
+4. Do **not** translate canonical identifiers: FQDN, `system`, `absolute_fqdn`, record types (`A`, `AAAA`), metric names, MTR verdict codes in data.
+5. Verify **RU layout** at laptop widths (1024–1440px) when adding long labels — KPI cards, filters, header.
+6. Historical and Compare modes must use the same translation keys as Live — no partially localized screens.
+
+When `DNS_DEBUG_UI_I18N_ENABLED=false`: English only, switcher hidden, `lang="en"`.
 
 When `DNS_DEBUG_UI_ENABLED=true`:
 
@@ -222,7 +259,7 @@ Query params (all optional, backward compatible): `test_id`, `from`, `to`, `reso
 | Mode | Behavior |
 |------|----------|
 | **Live** | Poll in-memory `stats_store` / `mtr_store`; auto-refresh toggle (default ON) every `DNS_DEBUG_UI_REFRESH_SECONDS`; KPI trends vs previous poll; optional live window presets (15m/1h) |
-| **Historical** | Auto-refresh off; load event buffer (`from`/`to`) or saved snapshot (`snapshot_id`); grouped snapshot picker; stale/truncation warnings; per-panel `data_source` badge |
+| **Historical** | Auto-refresh off; load event buffer (`from`/`to`, in-process) or saved snapshot (`snapshot_id` from PostgreSQL or files); grouped snapshot picker; **7-day retention** banners when DB enabled; stale/truncation warnings; per-panel `data_source` badge |
 | **Compare** | Auto-refresh off; server-side deltas via `/api/ui/compare` for all panels; dual-series latency overlay; green=improvement / red=regression semantics |
 
 All UI routes are mounted under `DNS_DEBUG_UI_BASE_PATH` when using the recommended single-process pattern.
@@ -232,7 +269,10 @@ All UI routes are mounted under `DNS_DEBUG_UI_BASE_PATH` when using the recommen
 - Internal runtime counters from `stats_store` and `mtr_store`
 - Core API equivalents (`/tests`, `/summary`, `/mtr`)
 - Prometheus metrics (`/metrics`) via internal registry mirror or scrape
-- Persisted snapshots at `data/snapshots/{test_id}_{timestamp}.json` when `SNAPSHOT_ENABLED=true` (on test completion and every 5 min for long/autonomous runs). Mount `./data/snapshots:/app/data/snapshots` in docker-compose for persistence across restarts.
+- **PostgreSQL** (`app/db/`) when `DNS_DEBUG_DB_ENABLED=true`: snapshots, aggregates, MTR history — **7-day retention** via automatic cleanup
+- File snapshots at `data/snapshots/*.json` when DB disabled, or as import source on startup
+- When `DNS_DEBUG_DB_ENABLED=true`, snapshots and aggregates are written to PostgreSQL on test completion and every 5 min for long/autonomous runs (`SNAPSHOT_ENABLED=true`). JSON files in `SNAPSHOT_DIR` are optional import source only.
+- When `DNS_DEBUG_DB_ENABLED=false`, persisted snapshots at `data/snapshots/{test_id}_{timestamp}.json` with count-based prune (`SNAPSHOT_RETENTION_COUNT`).
 
 ### Dashboard information architecture (3-tier)
 
@@ -272,6 +312,7 @@ Sticky sub-nav: **Status | Diagnostics | Drilldown**. Top bar: mode toggle, auto
 ### Visual and technology requirements
 
 - Modern, engineer/analyst-friendly layout; dark and light theme toggle (persist in `localStorage`)
+- **EN/RU localization** via `i18n.js` + JSON bundles; language switcher in header; locale-aware number/percent formatting (`Intl`)
 - No heavy SPA framework (no React/Vue build pipeline required)
 - FastAPI Jinja2 templates + vanilla JS; static assets in `app/ui/static/`
 - Chart.js (preferred) or Apache ECharts for charts
@@ -458,6 +499,48 @@ Do not ship UI changes while any of the following remain open:
 **Rule:** UI changes are **incomplete** without completing Stages 1–3 (and Stage 4 when findings exist). A merged PR or closed task without the pre-release workflow does not meet the project quality bar.
 
 Operational runbook: `.ai/skills/dns-debug/debugging-checklist.md` §10.
+
+### Release documentation
+
+UI/UX/i18n/workflow/docs changes **must** ship as a release change set, not as code-only patches. Stage 5 pre-release readiness alone does **not** complete a release.
+
+#### Required release artifacts
+
+| Artifact | When required |
+|----------|---------------|
+| `CHANGELOG.md` entry | Every release |
+| `docs/releases/X.Y.Z.md` | Every release — full internal release notes |
+| `app/main.py` version bump | When semver changes |
+| AI docs sync | Every release — skills, rules, `CLAUDE.md`, `CURSOR.md` reflected in release doc |
+
+Playbook: [`docs/releases/README.md`](docs/releases/README.md)
+
+#### Release readiness expectations
+
+Before marking a release complete:
+
+- Version bumped with documented semver rationale (major/minor/patch)
+- `CHANGELOG.md` and `docs/releases/X.Y.Z.md` updated in the same change set
+- Release summary lists **user-visible** changes (UX, responsive, i18n) and **process-visible** changes (QA/UX workflow, agent rules, skills)
+- Configuration / migration notes documented when env vars or docker setup change
+- No version mismatch between `app/main.py`, CHANGELOG, and release doc
+
+#### Release scope summary (required in release doc)
+
+Each `docs/releases/X.Y.Z.md` must cover:
+
+1. Release title / version
+2. Summary
+3. UX changes
+4. Responsive / adaptive fixes
+5. Localization / Russian language support (or explicit "none")
+6. QA / UX workflow changes
+7. Documentation / rules / skills / agent updates
+8. Breaking changes / compatibility notes
+9. Configuration notes / env changes
+10. Known limitations / follow-ups
+
+**Rule:** A task with UI/UX/i18n/workflow changes is **incomplete** without release documentation, even when pre-release Stages 1–5 pass.
 
 ## AI agent guidance
 
