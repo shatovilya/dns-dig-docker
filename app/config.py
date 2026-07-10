@@ -163,7 +163,10 @@ class Settings(BaseSettings):
     dns_debug_ui_auth_enabled: bool = True
     dns_debug_ui_allowed_roles: list[str] = ["read-only", "operator", "admin"]
     dns_debug_ui_ip_allowlist: list[str] = []
-    dns_debug_ui_csp: str = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+    dns_debug_ui_csp: str = (
+        "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline'; connect-src 'self'"
+    )
 
     @field_validator(
         "api_bearer_tokens",

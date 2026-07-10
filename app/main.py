@@ -18,6 +18,7 @@ from security.headers import SecurityHeadersMiddleware
 from security.middleware import SecurityMiddleware
 from security.rate_limit import RateLimitMiddleware
 from security.request_id import RequestIdMiddleware
+from ui.router import mount_ui
 from utils import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -133,9 +134,25 @@ async def lifespan(app: FastAPI):
                 "ndots": snapshot.ndots,
                 "autonomous_mode": settings.autonomous_mode,
                 "api_auth_enabled": settings.api_auth_enabled,
+                "ui_enabled": settings.dns_debug_ui_enabled,
+                "ui_base_path": settings.dns_debug_ui_base_path if settings.dns_debug_ui_enabled else None,
+                "ui_readonly": settings.dns_debug_ui_readonly,
             },
         },
     )
+
+    if settings.dns_debug_ui_enabled:
+        logger.info(
+            "Web UI enabled",
+            extra={
+                "event": "ui_startup",
+                "extra": {
+                    "base_path": settings.dns_debug_ui_base_path,
+                    "readonly": settings.dns_debug_ui_readonly,
+                    "refresh_seconds": settings.dns_debug_ui_refresh_seconds,
+                },
+            },
+        )
 
     await _start_background_runners(settings)
 
@@ -171,6 +188,7 @@ def create_app() -> FastAPI:
         )
 
     app.include_router(router)
+    mount_ui(app, settings)
     return app
 
 
