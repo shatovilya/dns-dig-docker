@@ -64,10 +64,36 @@ Key extension points: `dns_runner._resolve`, `_classify_noise`, `expand_work_ite
 - Mount under `DNS_DEBUG_UI_BASE_PATH` (default `/dns-debug`) on same FastAPI app
 - Env vars: `DNS_DEBUG_UI_PORT`, `DNS_DEBUG_UI_BIND`, `DNS_DEBUG_UI_REFRESH_SECONDS`
 - Prefer Jinja2 + vanilla JS + Chart.js; no heavy SPA build pipeline
-- UI reads from `stats_store`, `mtr_store`, metrics registry, optional `data/snapshots/latest.json`
+- UI reads from `stats_store`, `mtr_store`, metrics registry, persisted snapshots in `data/snapshots/`
 - Never imply heuristic cache UI cards show real Docker DNS cache hits
 - UI is for developer, SRE, QA, and analyst — not a required dependency for tests
 - Any Web UI change must update UI panel descriptions in `AGENT.md` and `debugging-checklist.md`
+- Dashboard supports **live**, **historical**, and **compare** view modes — see `AGENT.md` UI spec
+- Historical mode uses in-memory event buffer (`from`/`to`) or persisted snapshots (`SNAPSHOT_*` env vars)
+- Compare mode uses server-side `/api/ui/compare` deltas — never client-only delta math for KPIs
+
+## QA / UX gates
+
+Major UI work requires role-appropriate review before the task is complete:
+
+| Change type | Required perspective |
+|-------------|---------------------|
+| Major UI feature or layout | QA acceptance perspective (`qa-ui` skill) |
+| Major UX / IA change | UX designer perspective (`ux-designer` skill) |
+| New dashboard section | UX clarity check (purpose, states, microcopy) |
+| Historical mode | QA checklist — retention, stale, empty states |
+| Compare mode | **Both** `qa-ui` and `ux-designer` skills + `debugging-checklist.md` |
+| Visual changes | State coverage for loading, empty, error, stale, retention exceeded |
+| History features | Retention and empty-state design (`ux-designer`); truncation honesty (`qa-ui`) |
+| Live UX v2 | `global_status` rollup, KPI trends, auto-refresh toggle, 3-tier sub-nav |
+| Pre-release UX audit | Stage 2 UX audit deliverable (`ux-designer` skill) |
+| Responsive review | QA 8-width checklist; laptop breakage (1024–1440px) = P1 blocker |
+| Chart/layout QA | Chart readability and layout hierarchy at laptop widths |
+| Release readiness | No open P0/P1; Stages 1–4 complete; docs synced |
+
+**Incomplete:** visual or behavioral UI changes without state coverage; history/compare without retention messaging; compare without delta verification; UI shipped without pre-release workflow (Stages 1–3); open P1 responsive laptop/tablet breakage.
+
+See `.cursor/rules/qa-ux-gates.mdc` for enforcement rules and doc sync requirements.
 
 ## Documentation sync requirements
 
@@ -77,8 +103,10 @@ When changing behavior, update relevant AI docs:
 |-------------|--------|
 | Metrics added/renamed | `metrics-reference.md` (+ conceptual mapping if applicable) |
 | Web UI sections/endpoints | `AGENT.md`, `debugging-checklist.md` UI section |
+| Charts, filters, view modes, historical/compare | `qa-ui` + `ux-designer` skills, `debugging-checklist.md`, `AGENT.md` |
+| Dashboard IA or state design | `ux-designer` skill, `AGENT.md` UI section |
 | MTR behavior | `debugging-checklist.md`, `SKILL.md` |
-| New env variable | `AGENT.md`, `SKILL.md`, `CLAUDE.md`, this file |
+| New env variable | `AGENT.md`, `SKILL.md`, `CLAUDE.md`, `CURSOR.md`, this file |
 | DNS logic / noise types | `SKILL.md`, `AGENT.md` |
 | Operational flow | `debugging-checklist.md` |
 
@@ -90,7 +118,7 @@ Do not remove EDNS breakdown, per-resolver analysis, or MTR diagnostics from the
 
 **UI** (when `DNS_DEBUG_UI_ENABLED=true`, under `{DNS_DEBUG_UI_BASE_PATH}/api/ui/`):
 
-`/overview`, `/dns-latency`, `/edns`, `/errors`, `/garbage`, `/cache`, `/records`, `/load`, `/mtr`, `/rankings`
+`/overview`, `/dns-latency`, `/edns`, `/errors`, `/garbage`, `/cache`, `/records`, `/load`, `/mtr`, `/rankings`, `/snapshots`, `/snapshots/{id}`, `/compare`, `/snapshots`, `/snapshots/{id}`, `/compare`
 
 **HTML:** `GET {DNS_DEBUG_UI_BASE_PATH}/` (e.g. `/dns-debug/`)
 

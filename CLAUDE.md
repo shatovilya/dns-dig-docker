@@ -57,7 +57,9 @@ Search suffix probes are **diagnostic** — they measure overhead, not primary a
 | `DNS_DEBUG_UI_REFRESH_SECONDS` | `5` |
 
 - Dashboard: `http://localhost:8080/dns-debug/` (default `DNS_DEBUG_UI_BASE_PATH`)
-- JSON: `/dns-debug/api/ui/overview`, `/dns-debug/api/ui/dns-latency`, `/edns`, `/errors`, `/garbage`, `/cache`, `/records`, `/load`, `/mtr`, `/rankings`
+- JSON: `/dns-debug/api/ui/overview`, `/dns-latency`, `/edns`, `/errors`, `/garbage`, `/cache`, `/records`, `/load`, `/mtr`, `/rankings`, `/events`, `/snapshots`, `/compare`
+- View modes: **Live** (auto-refresh toggle, KPI trends), **Historical** (grouped snapshots, retention banners), **Compare** (full panel server-side deltas)
+- Dashboard IA: 3-tier zones (`zone-status`, `zone-diagnostics`, `zone-drilldown`) with sticky sub-nav
 
 Set `DNS_DEBUG_UI_ENABLED=false` to run core-only (no UI routes).
 
@@ -69,6 +71,36 @@ Set `DNS_DEBUG_UI_ENABLED=false` to run core-only (no UI routes).
 - MTR observability documented (optional at runtime)
 - Background async test execution
 
+## AI role selection
+
+Select a role by task type. UI/historical/compare changes without QA and UX review are **incomplete**.
+
+| Role | Skill | When to apply |
+|------|-------|---------------|
+| DNS engineer | `.ai/skills/dns-debug/SKILL.md` | DNS logic, metrics, MTR, core API, noise/diagnosis |
+| QA engineer | `.ai/skills/qa-ui/SKILL.md` | Acceptance, regression, data correctness, live/historical/compare validation |
+| UX designer | `.ai/skills/ux-designer/SKILL.md` | Dashboard IA, states, filters, chart hierarchy, microcopy |
+
+**Large UI change workflow:** UX designer → implement → Stage 1 self-check → UX audit → QA validate → fix pass → release readiness → sync docs.
+
+**Pre-release UX workflow (5 stages):** Self-check → UX review → QA review → Fix pass → Release readiness. UI changes without Stages 1–3 are **incomplete**. See `AGENT.md` → Pre-release UX workflow.
+
+**Release blockers:** P0 data/security issues; P1 misleading observability; P1 responsive laptop breakage (1024–1440px); P1 tablet layout breakage (768px); missing state coverage; skipped UX audit or QA pass; stale AI docs.
+
+**Incomplete task definition:** shipping UI/UX/historical/compare changes without updating the QA skill, UX skill, and relevant AI docs (`AGENT.md`, `debugging-checklist.md`, `CLAUDE.md`, `CURSOR.md`, rules) or without completing the pre-release workflow.
+
+### Doc sync triggers
+
+| Change type | Update |
+|-------------|--------|
+| Charts, filters, view modes, historical/compare | `qa-ui` + `ux-designer` skills, `debugging-checklist.md`, `AGENT.md` |
+| New UI JSON fields or envelope | `AGENT.md`, `debugging-checklist.md`, `qa-ui` skill |
+| Dashboard IA or state design | `ux-designer` skill, `AGENT.md` UI section |
+| Metrics added/renamed | `metrics-reference.md`, `dns-debug` skill |
+| New env variable | `AGENT.md`, `dns-debug` skill, `CLAUDE.md`, `CURSOR.md`, rules |
+
+See `CURSOR.md` for Cursor-specific role routing and the full mandatory sync table.
+
 ## AI assistant rules
 
 1. **Understand project domain** — DNS debugging and observability inside Docker, not generic web dev.
@@ -77,12 +109,16 @@ Set `DNS_DEBUG_UI_ENABLED=false` to run core-only (no UI routes).
 4. **Do not break UI JSON contracts** — additive fields only unless explicitly requested.
 5. **Do not remove MTR observability** from docs or aggregators.
 6. **Do not remove EDNS detail** or per-resolver breakdown.
-7. **Update AI docs synchronously** — `AGENT.md`, `SKILL.md`, `debugging-checklist.md`, `metrics-reference.md`, this file.
+7. **Update AI docs synchronously** — `AGENT.md`, `SKILL.md`, `debugging-checklist.md`, `metrics-reference.md`, `qa-ui`/`ux-designer` skills when UI changes, this file, `CURSOR.md`.
 8. **Prefer minimal, safe, backward-compatible changes.**
 9. **Document trade-offs explicitly** when choosing between simplicity and observability richness.
 10. **When in doubt, preserve observability richness** — do not strip dashboard sections or metric labels.
 11. **Web UI is optional** — `DNS_DEBUG_UI_ENABLED` feature flag; core must run with UI disabled.
 12. **UI audience** — developer, SRE, QA, analyst; readonly by default.
+13. **Select AI role by task** — DNS → `dns-debug` skill; UI acceptance/regression → `qa-ui`; UX/IA/states → `ux-designer`.
+14. **UI tasks need QA/UX review** — historical/compare/filter/chart changes require both skills updated and validation; complete pre-release workflow Stages 1–3 minimum.
+15. **Sync on dashboard changes** — update `qa-ui/SKILL.md`, `ux-designer/SKILL.md`, `AGENT.md`, `debugging-checklist.md`, rules, this file, `CURSOR.md`.
+16. **Pre-release workflow** — UI changes require 5-stage workflow (self-check → UX audit → QA release readiness → fix pass → release sign-off); see `AGENT.md`.
 
 ## Safe changes
 
@@ -118,6 +154,10 @@ curl http://localhost:8080/health
 |------|---------|
 | `AGENT.md` | Full engineering brief, architecture, env vars, UI spec |
 | `.ai/skills/dns-debug/SKILL.md` | DNS/MTR/UI analysis skill and change checklist |
+| `.ai/skills/qa-ui/SKILL.md` | QA engineer — UI acceptance and regression |
+| `.ai/skills/ux-designer/SKILL.md` | UX designer — dashboard IA and states |
 | `.ai/skills/dns-debug/debugging-checklist.md` | Operational and UI troubleshooting workflow |
+| `CURSOR.md` | Cursor role routing and skill paths |
 | `.ai/skills/dns-debug/metrics-reference.md` | Prometheus + conceptual metrics + UI mapping |
 | `.cursor/rules/dns-debug-project.mdc` | Cursor always-on project rules |
+| `.cursor/rules/qa-ux-gates.mdc` | QA/UX enforcement gates for UI work |

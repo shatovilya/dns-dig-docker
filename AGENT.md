@@ -181,7 +181,10 @@ The Web UI is **not** part of the core DNS engine. It is a read-mostly dashboard
 | `DNS_DEBUG_UI_BIND` | `0.0.0.0` | Bind address when UI runs as separate listener |
 | `DNS_DEBUG_UI_BASE_PATH` | `/dns-debug` | Base path for dashboard page and static assets |
 | `DNS_DEBUG_UI_READONLY` | `true` | UI is view-only; test control stays on core API |
-| `DNS_DEBUG_UI_REFRESH_SECONDS` | `5` | Client polling interval for `/api/ui/*` |
+| `DNS_DEBUG_UI_REFRESH_SECONDS` | `5` | Client polling interval for `/api/ui/*` (live mode only) |
+| `SNAPSHOT_ENABLED` | `true` | Persist aggregated UI snapshots when tests complete |
+| `SNAPSHOT_DIR` | `data/snapshots` | Directory for historical snapshot JSON files |
+| `SNAPSHOT_RETENTION_COUNT` | `20` | Max snapshots kept on disk (oldest pruned) |
 
 When `DNS_DEBUG_UI_ENABLED=false`: no UI routes, no static mount, no `/api/ui/*`.
 
@@ -195,16 +198,32 @@ When `DNS_DEBUG_UI_ENABLED=true`:
 
 | Endpoint | Data |
 |----------|------|
-| `GET /api/ui/overview` | Health, active/completed tests, errors, success vs failed ratio, `last_update` |
+| `GET /api/ui/overview` | Health, active/completed tests, errors, success vs failed ratio, `global_status` rollup, `kpi_extras` (p50/p95/p99, rates), `last_update` |
 | `GET /api/ui/dns-latency` | Time series latency, p50/p95/p99, breakdown by resolver, query type, EDNS |
 | `GET /api/ui/edns` | Counters for edns0–edns5: queries, errors, avg latency, error rate |
-| `GET /api/ui/errors` | Errors by QPS density, resolver, domain, query type, error class |
-| `GET /api/ui/garbage` | Noisy queries, classification, top domains, useful vs garbage ratio |
+| `GET /api/ui/errors` | Errors by QPS density, resolver, domain, query type, error class, `resolver_error_matrix` |
+| `GET /api/ui/garbage` | Noisy queries, classification, `top_noisy_domains`, useful vs garbage ratio |
 | `GET /api/ui/cache` | Heuristic hit/miss, effectiveness by resolver, repeat queries, correlation |
 | `GET /api/ui/records` | Drilldown table per FQDN |
 | `GET /api/ui/load` | errors/latency/success rate vs qps, saturation, burst panel |
 | `GET /api/ui/mtr` | MTR targets, hops, loss, latency, verdict, timeline |
 | `GET /api/ui/rankings` | Resolver, domain, query-type, MTR target rankings |
+| `GET /api/ui/events` | Recent in-memory query events (`record`, `limit`); no persistence |
+| `GET /api/ui/snapshots` | List persisted test snapshots (historical mode) |
+| `GET /api/ui/snapshots/{id}` | Full snapshot payload (all panel aggregates) |
+| `GET /api/ui/compare` | Baseline vs comparison deltas for overview, latency, errors (incl. matrix), garbage, cache, load, rankings |
+
+All UI JSON responses include additive envelope fields: `view_mode`, `data_source`, `time_range`, `retention`, `warnings`, `is_stale`.
+
+Query params (all optional, backward compatible): `test_id`, `from`, `to`, `resolve_mode`, `query_type`, `view_mode` (`live`|`historical`|`compare`), `snapshot_id`. Compare endpoint uses `baseline_from`, `baseline_to`, `compare_from`, `compare_to`, `baseline_snapshot_id`, `compare_snapshot_id`, `baseline_test_id`, `compare_test_id`, `baseline_resolve_mode`, `compare_resolve_mode`.
+
+### View modes
+
+| Mode | Behavior |
+|------|----------|
+| **Live** | Poll in-memory `stats_store` / `mtr_store`; auto-refresh toggle (default ON) every `DNS_DEBUG_UI_REFRESH_SECONDS`; KPI trends vs previous poll; optional live window presets (15m/1h) |
+| **Historical** | Auto-refresh off; load event buffer (`from`/`to`) or saved snapshot (`snapshot_id`); grouped snapshot picker; stale/truncation warnings; per-panel `data_source` badge |
+| **Compare** | Auto-refresh off; server-side deltas via `/api/ui/compare` for all panels; dual-series latency overlay; green=improvement / red=regression semantics |
 
 All UI routes are mounted under `DNS_DEBUG_UI_BASE_PATH` when using the recommended single-process pattern.
 
@@ -213,7 +232,17 @@ All UI routes are mounted under `DNS_DEBUG_UI_BASE_PATH` when using the recommen
 - Internal runtime counters from `stats_store` and `mtr_store`
 - Core API equivalents (`/tests`, `/summary`, `/mtr`)
 - Prometheus metrics (`/metrics`) via internal registry mirror or scrape
-- Optional JSON snapshots at `data/snapshots/latest.json` for completed-run persistence
+- Persisted snapshots at `data/snapshots/{test_id}_{timestamp}.json` when `SNAPSHOT_ENABLED=true` (on test completion and every 5 min for long/autonomous runs). Mount `./data/snapshots:/app/data/snapshots` in docker-compose for persistence across restarts.
+
+### Dashboard information architecture (3-tier)
+
+| Tier | Zone ID | Content |
+|------|---------|---------|
+| **L1 Status** | `zone-status` | `global_status` strip (ok/degraded/critical + signals), resolver context, overview KPI row with live trends |
+| **L2 Diagnostics** | `zone-diagnostics` | Latency, EDNS, Errors (incl. resolver×error matrix), Garbage (`top_noisy_domains`), Cache, Load, MTR |
+| **L3 Drilldown** | `zone-drilldown` | Records table (search/status filter, events modal), Rankings |
+
+Sticky sub-nav: **Status | Diagnostics | Drilldown**. Top bar: mode toggle, auto-refresh toggle, reset, quick search, status filter, live time presets; History controls collapsed under "History ▾".
 
 ### UI data structures (conceptual JSON)
 
@@ -246,9 +275,11 @@ All UI routes are mounted under `DNS_DEBUG_UI_BASE_PATH` when using the recommen
 - No heavy SPA framework (no React/Vue build pipeline required)
 - FastAPI Jinja2 templates + vanilla JS; static assets in `app/ui/static/`
 - Chart.js (preferred) or Apache ECharts for charts
-- Adaptive layout, KPI cards, global filters (test_id, time range, resolve_mode, query_type)
+- Adaptive layout, KPI cards, global filters (test_id, time range, resolve_mode, query_type, view mode)
+- Live / Historical / Compare mode toggle with explicit data-source badge
+- Active filter chips, loading/empty/error/stale state design per panel
 - Severity colors: green = ok, yellow = warning, red = critical, blue = informational
-- Auto-refresh via polling every `DNS_DEBUG_UI_REFRESH_SECONDS`
+- Auto-refresh via polling in **live mode only** (`DNS_DEBUG_UI_REFRESH_SECONDS`)
 
 ### How to read and interpret the UI
 
@@ -358,6 +389,76 @@ See [MTR configuration](#mtr-configuration) above.
 - Replacing embedded DNS with external resolver infrastructure
 - Making Web UI perform mutating actions when `DNS_DEBUG_UI_READONLY=true`
 
+## AI roles
+
+Project agents should select a role based on task type. UI work without QA/UX review is **incomplete**.
+
+| Role | Skill | When to apply |
+|------|-------|---------------|
+| DNS engineer | `.ai/skills/dns-debug/SKILL.md` | DNS resolution, metrics, MTR, core API, noise/diagnosis |
+| QA engineer | `.ai/skills/qa-ui/SKILL.md` | UI acceptance, regression, data correctness, live/historical/compare validation |
+| UX designer | `.ai/skills/ux-designer/SKILL.md` | Dashboard IA, usability, states, filters, chart hierarchy, microcopy |
+
+### Workflow for UI / historical / compare changes
+
+1. **UX designer** — IA, states, filter strategy, microcopy (especially retention and compare deltas)
+2. **Implement** — backend + frontend; preserve additive JSON contracts
+3. **QA engineer** — acceptance + regression checklists; API ↔ UI cross-check
+4. **Sync docs** — QA skill, UX skill, `AGENT.md`, `debugging-checklist.md`, rules, `CLAUDE.md`, `CURSOR.md`
+
+**Requirement:** When dashboard model changes (UI structure, historical/compare, filters, charts, state design, data contracts), update QA and UX skills and relevant AI docs in the same change.
+
+### Pre-release UX workflow
+
+UI and dashboard changes require a **5-stage pre-release workflow** in addition to the design → implement → QA → docs flow above. Skipping stages marks the task **incomplete**.
+
+| Stage | Role | Skill | Purpose |
+|-------|------|-------|---------|
+| **1. Self-check** | DNS engineer | `.ai/skills/dns-debug/SKILL.md` | Implementer verifies feature completeness, states, responsive basics, and doc sync before requesting review |
+| **2. UX review** | UX designer | `.ai/skills/ux-designer/SKILL.md` | Pre-release UX audit: layout, charts, filters, states, responsive, accessibility |
+| **3. QA review** | QA engineer | `.ai/skills/qa-ui/SKILL.md` | Acceptance, responsive widths, visual regression, state coverage, API ↔ UI cross-check |
+| **4. Fix pass** | DNS engineer | `.ai/skills/dns-debug/SKILL.md` | Close P0/P1 findings; re-request QA spot-check on fixed items |
+| **5. Release readiness** | All roles | — | Confirm no release blockers remain; AI docs synced |
+
+#### Role mapping
+
+| Stage | Primary owner | Deliverable |
+|-------|---------------|-------------|
+| 1 | DNS engineer (implementer) | Self-check sign-off — all changed panels load; states present; skills/docs draft updated |
+| 2 | UX designer | UX audit deliverable (see `ux-designer` skill template) |
+| 3 | QA engineer | Release readiness checklist passed; bug reports filed for blockers |
+| 4 | DNS engineer | Fix pass notes — what changed, which findings closed |
+| 5 | Implementer + reviewers | Release readiness sign-off |
+
+#### Release gating criteria
+
+All of the following must be true before marking a UI change release-ready:
+
+- Stage 1 self-check complete (see `dns-debug` skill — Stage 1 responsibilities)
+- Stage 2 UX audit deliverable filed with no unresolved P0/P1 UX defects
+- Stage 3 QA release readiness checklist passed (see `qa-ui` skill)
+- Stage 4 fix pass closed all P0 and P1 blockers (or explicitly deferred with user approval)
+- Stage 5: responsive smoke at laptop/tablet widths; state coverage on changed panels; AI docs synced
+
+#### Release blockers
+
+Do not ship UI changes while any of the following remain open:
+
+| Blocker | Severity | Example |
+|---------|----------|---------|
+| Wrong or inverted compare/historical data | P0 | Delta KPIs disagree with `/api/ui/compare` curl |
+| Security regression (mutating UI when readonly) | P0 | DELETE button visible with `DNS_DEBUG_UI_READONLY=true` |
+| Misleading cache or observability copy | P1 | Cache card implies confirmed Docker DNS cache hits |
+| Laptop layout breakage (1024–1440px) | P1 | Sticky sub-nav, filter bar, or KPI row unusable — core triage flow blocked |
+| Tablet layout breakage (768px) | P1 | Mode switcher or global filters overflow/truncated without scroll |
+| Missing state coverage on changed panels | P1 | Silent blank panel instead of loading/empty/error copy |
+| Skipped UX audit or QA release readiness | P1 | No Stage 2 deliverable or Stage 3 checklist |
+| Docs not synced | P1 | Skills, `debugging-checklist.md`, rules, `CLAUDE.md`, or `CURSOR.md` stale |
+
+**Rule:** UI changes are **incomplete** without completing Stages 1–3 (and Stage 4 when findings exist). A merged PR or closed task without the pre-release workflow does not meet the project quality bar.
+
+Operational runbook: `.ai/skills/dns-debug/debugging-checklist.md` §10.
+
 ## AI agent guidance
 
 ### What not to break in the DNS model
@@ -395,8 +496,12 @@ Preserve observability richness. Do not remove EDNS breakdown, per-resolver anal
 | File | Purpose |
 |------|---------|
 | `.ai/skills/dns-debug/SKILL.md` | Skill for DNS logic, analytics, metrics, UI work |
+| `.ai/skills/qa-ui/SKILL.md` | QA engineer role — UI acceptance, regression, data correctness |
+| `.ai/skills/ux-designer/SKILL.md` | UX designer role — dashboard IA, states, usability |
 | `.ai/skills/dns-debug/debugging-checklist.md` | Operational curl-based workflow + UI walkthrough |
 | `.ai/skills/dns-debug/metrics-reference.md` | Prometheus metric reference + UI mapping |
 | `.cursor/rules/dns-debug-project.mdc` | Cursor always-on constraints |
+| `.cursor/rules/qa-ux-gates.mdc` | QA/UX enforcement gates for UI work |
 | `CLAUDE.md` | Short repo guide for Claude Code |
+| `CURSOR.md` | Cursor-specific role routing and doc sync |
 | `docs/SECURITY.md` | Security model, threat model, operations, migration |
