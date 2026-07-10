@@ -1,0 +1,60 @@
+---
+description: QA and UX designer role routing, gates, and doc sync for Web UI work
+alwaysApply: true
+---
+
+# QA / UX Gates
+
+Enforcement rules for role routing and documentation sync on Web UI changes. Full context: `AGENT.md` AI roles, `CURSOR.md`, skill files under `.ai/skills/`.
+
+## Role routing
+
+| Task | Skill |
+|------|-------|
+| DNS/MTR/metrics/core API | `.ai/skills/dns-debug/SKILL.md` |
+| Dashboard IA, states, filters, chart hierarchy, microcopy | `.ai/skills/ux-designer/SKILL.md` |
+| Acceptance, regression, API↔UI correctness, compare deltas | `.ai/skills/qa-ui/SKILL.md` |
+
+**Large UI change:** UX designer → implement → Stage 1 self-check → UX audit → QA validate → fix pass → release readiness.
+
+**Pre-release workflow:** Stages 1–3 required for all visual/behavioral UI changes. See `AGENT.md` → Pre-release UX workflow.
+
+**Compare mode:** apply **both** `qa-ui` and `ux-designer` skills; update `debugging-checklist.md`.
+
+## Gates (task incomplete until satisfied)
+
+1. **Major UI feature** — QA acceptance perspective (`qa-ui` skill checklist)
+2. **Major UX / IA change** — UX designer perspective (`ux-designer` skill)
+3. **New dashboard section** — UX clarity: purpose, states, microcopy documented
+4. **Historical mode** — QA checklist: retention, stale, empty states, truncation honesty
+5. **Compare mode** — both skills; server-side delta verification; color semantics for improvement vs regression
+6. **Visual changes** — state coverage: loading, empty, error, stale, retention exceeded, no EDNS, no MTR
+7. **History features** — retention/empty-state design (UX); never imply full history from event buffer alone (QA)
+8. **Live UX v2** — `global_status` rollup, KPI poll trends, auto-refresh toggle, 3-tier IA sub-nav documented in `ux-designer` + `debugging-checklist.md` § Live UX
+9. **UX audit required** — Stage 2 pre-release UX audit deliverable (`ux-designer` skill) before QA release readiness
+10. **Responsive review** — QA responsive width checklist at 8 widths (1920–375px); laptop breakage = P1 blocker
+11. **Chart/layout QA** — chart readability, 3-tier layout hierarchy, filter bar at laptop widths (`qa-ui` skill)
+12. **No critical UX defects** — no open P0/P1 UX or observability findings at release
+13. **No broken laptop/tablet** — core triage flow intact at 1024–1440px and 768px
+14. **State design + docs sync** — loading/empty/error/stale/retention on changed panels; pre-release workflow sections synced in skills, `AGENT.md`, `debugging-checklist.md`, `CLAUDE.md`, `CURSOR.md`, rules
+
+## Prohibited without gates
+
+- Shipping compare mode without delta tests or QA cross-check against `/api/ui/compare`
+- Visual UI changes without loading/empty/error state coverage
+- Historical views without retention/truncation messaging
+- Treating cache heuristic as real Docker DNS cache in UI copy
+- Breaking additive JSON contracts on `/api/ui/*` without explicit approval
+- Shipping UI changes without Stage 2 UX audit and Stage 3 QA release readiness
+- Releasing with open P1 responsive laptop/tablet breakage on core triage flow
+
+## Doc sync (same change as code)
+
+| Change | Update |
+|--------|--------|
+| Charts, filters, view modes, historical/compare | `qa-ui` + `ux-designer`, `debugging-checklist.md`, `AGENT.md` |
+| Dashboard IA or states | `ux-designer`, `AGENT.md` UI section |
+| New UI endpoints or envelope fields | `AGENT.md`, `debugging-checklist.md`, `qa-ui` |
+| New env var | `AGENT.md`, `dns-debug` skill, `CLAUDE.md`, `CURSOR.md`, `dns-debug-project.mdc` |
+
+Routing is centralized in `AGENT.md` + `CURSOR.md` — do not create duplicate `AGENTS.md`.

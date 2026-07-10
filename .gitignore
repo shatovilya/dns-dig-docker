@@ -69,3 +69,6 @@ Desktop.ini
 logs/
 tmp/
 temp/
+
+# UI historical snapshots (runtime)
+data/snapshots/

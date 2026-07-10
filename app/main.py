@@ -1,10 +1,9 @@
-import asyncio
 import logging
-import sys
 from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from api import router
 from config import Settings, get_settings
@@ -14,6 +13,12 @@ from resolver_snapshot import capture, set_snapshot
 from stats_store import get_stats_store
 import metrics
 from ndots_analytics import effective_attempts, effective_ndots, effective_timeout_seconds, worst_case_resolve_budget_ms
+from security.errors import register_exception_handlers
+from security.headers import SecurityHeadersMiddleware
+from security.middleware import SecurityMiddleware
+from security.rate_limit import RateLimitMiddleware
+from security.request_id import RequestIdMiddleware
+from ui.router import mount_ui
 from utils import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -25,6 +30,8 @@ async def _prepare_autonomous_dns(settings: Settings) -> dict[str, Any]:
             "AUTONOMOUS_MODE is enabled but AUTONOMOUS_RECORDS is empty",
             extra={"event": "autonomous_startup_failed"},
         )
+        import sys
+
         sys.exit(1)
 
     config = build_autonomous_config(settings)
@@ -35,6 +42,8 @@ async def _prepare_autonomous_dns(settings: Settings) -> dict[str, Any]:
 
 async def _start_background_runners(settings: Settings) -> None:
     """Prepare and start DNS + MTR background runners without serializing their execution."""
+    import asyncio
+
     autonomous_config: dict[str, Any] | None = None
     mtr_error: str | None = None
 
@@ -124,15 +133,34 @@ async def lifespan(app: FastAPI):
                 "options": snapshot.options,
                 "ndots": snapshot.ndots,
                 "autonomous_mode": settings.autonomous_mode,
+                "api_auth_enabled": settings.api_auth_enabled,
+                "ui_enabled": settings.dns_debug_ui_enabled,
+                "ui_base_path": settings.dns_debug_ui_base_path if settings.dns_debug_ui_enabled else None,
+                "ui_readonly": settings.dns_debug_ui_readonly,
             },
         },
     )
+
+    if settings.dns_debug_ui_enabled:
+        logger.info(
+            "Web UI enabled",
+            extra={
+                "event": "ui_startup",
+                "extra": {
+                    "base_path": settings.dns_debug_ui_base_path,
+                    "readonly": settings.dns_debug_ui_readonly,
+                    "refresh_seconds": settings.dns_debug_ui_refresh_seconds,
+                },
+            },
+        )
 
     await _start_background_runners(settings)
 
     yield
 
     logger.info("Shutting down, cancelling active tests", extra={"event": "shutdown"})
+    import asyncio
+
     await asyncio.gather(
         cancel_all_tests(timeout=settings.shutdown_timeout_seconds),
         cancel_mtr(timeout=settings.shutdown_timeout_seconds),
@@ -140,5 +168,28 @@ async def lifespan(app: FastAPI):
     logger.info("Shutdown complete", extra={"event": "shutdown_complete"})
 
 
-app = FastAPI(title="DNS Debugger", version="0.1.0", lifespan=lifespan)
-app.include_router(router)
+def create_app() -> FastAPI:
+    settings = get_settings()
+    app = FastAPI(title="DNS Debugger", version="0.3.0", lifespan=lifespan)
+    register_exception_handlers(app)
+
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RateLimitMiddleware)
+    app.add_middleware(SecurityMiddleware)
+    app.add_middleware(RequestIdMiddleware)
+
+    if settings.api_cors_enabled and settings.api_cors_allow_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.api_cors_allow_origins,
+            allow_credentials=settings.api_cors_allow_credentials,
+            allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+            allow_headers=["Authorization", "X-API-Key", "X-Request-ID", "Content-Type"],
+        )
+
+    app.include_router(router)
+    mount_ui(app, settings)
+    return app
+
+
+app = create_app()

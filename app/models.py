@@ -76,6 +76,8 @@ class QueryOutcome(str, Enum):
 
 
 class TestCreateRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
     test_name: str = "dns-debug-test"
     records: list[str] = Field(min_length=1)
     query_types: list[str] = Field(default=["A", "AAAA"], min_length=1)
@@ -85,6 +87,21 @@ class TestCreateRequest(BaseModel):
     concurrency: int = Field(ge=1)
     duration_seconds: int = Field(ge=1)
     timeout_seconds: float = Field(gt=0)
+
+    @field_validator("records")
+    @classmethod
+    def validate_records(cls, v: list[str]) -> list[str]:
+        from config import get_settings
+
+        settings = get_settings()
+        max_len = settings.api_max_fqdn_length
+        result: list[str] = []
+        for r in v:
+            name = r.strip()
+            if not name or len(name) > max_len:
+                raise ValueError(f"record length must be 1..{max_len}")
+            result.append(name)
+        return result
 
     @field_validator("query_types")
     @classmethod

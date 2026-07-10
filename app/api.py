@@ -1,8 +1,7 @@
-import asyncio
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
@@ -27,6 +26,9 @@ from mtr_runner import MtrAlreadyRunningError, is_mtr_running, trigger_mtr_now
 from mtr_store import MtrRunResult, get_mtr_store
 from ndots_analytics import build_diagnosis, build_test_analytics
 from resolver_snapshot import capture, get_snapshot
+from security.abuse import check_dns_run_allowed, validate_run_duration
+from security.audit import audit_event
+from security.auth import RequireOperator, RequireReadOnly, check_metrics_access
 from stats_store import get_stats_store
 
 router = APIRouter()
@@ -75,8 +77,22 @@ async def health() -> HealthResponse:
     )
 
 
+@router.get("/live")
+async def live() -> dict[str, str]:
+    return {"status": "alive"}
+
+
+@router.get("/ready")
+async def ready() -> dict[str, str]:
+    return {"status": "ready"}
+
+
 @router.get("/resolver")
-async def resolver(refresh: bool = Query(default=False)) -> dict[str, Any]:
+async def resolver(
+    request: Request,
+    _principal: RequireReadOnly,
+    refresh: bool = Query(default=False),
+) -> dict[str, Any]:
     snap = capture() if refresh else get_snapshot(refresh=False)
     return {
         "nameservers": snap.nameservers,
@@ -91,7 +107,11 @@ async def resolver(refresh: bool = Query(default=False)) -> dict[str, Any]:
 
 
 @router.post("/tests", status_code=201)
-async def create_test(body: TestCreateRequest | None = None) -> dict[str, str]:
+async def create_test(
+    request: Request,
+    principal: RequireOperator,
+    body: TestCreateRequest | None = None,
+) -> dict[str, str]:
     settings = get_settings()
 
     if settings.autonomous_mode:
@@ -116,8 +136,17 @@ async def create_test(body: TestCreateRequest | None = None) -> dict[str, str]:
         raise HTTPException(400, f"concurrency exceeds max_concurrency ({settings.max_concurrency})")
     if req.duration_seconds > settings.max_duration_seconds:
         raise HTTPException(400, f"duration_seconds exceeds max ({settings.max_duration_seconds})")
-    if len(req.records) > settings.max_records:
-        raise HTTPException(400, f"records exceeds max_records ({settings.max_records})")
+    if len(req.records) > min(settings.max_records, settings.api_max_records_per_run):
+        cap = min(settings.max_records, settings.api_max_records_per_run)
+        raise HTTPException(400, f"records exceeds limit ({cap})")
+
+    allowed_qt = {t.upper() for t in settings.api_allowed_query_types}
+    for qt in req.query_types:
+        if qt.upper() not in allowed_qt:
+            raise HTTPException(400, f"query type {qt} not allowed")
+
+    validate_run_duration(req.duration_seconds)
+    await check_dns_run_allowed(request, principal)
 
     test_id = str(uuid.uuid4())
     config = {
@@ -132,17 +161,25 @@ async def create_test(body: TestCreateRequest | None = None) -> dict[str, str]:
         "timeout_seconds": req.timeout_seconds,
         "cache_latency_threshold_ms": settings.cache_latency_threshold_ms,
         "cache_latency_ratio": settings.cache_latency_ratio,
+        "triggered_by": principal.credential_id,
     }
 
     store = get_stats_store()
     await store.create_test(test_id, req.test_name, config)
     start_test_background(test_id, config)
 
+    audit_event(
+        "dns_test_started",
+        request,
+        principal=principal,
+        extra={"test_id": test_id, "records_count": len(req.records)},
+    )
+
     return {"test_id": test_id, "status": TestStatus.PENDING.value}
 
 
 @router.get("/tests", response_model=list[TestListItem])
-async def list_tests() -> list[TestListItem]:
+async def list_tests(_principal: RequireReadOnly) -> list[TestListItem]:
     store = get_stats_store()
     tests = await store.list_tests()
     return [
@@ -157,7 +194,7 @@ async def list_tests() -> list[TestListItem]:
 
 
 @router.get("/tests/{test_id}", response_model=TestDetailResponse)
-async def get_test(test_id: str) -> TestDetailResponse:
+async def get_test(test_id: str, _principal: RequireReadOnly) -> TestDetailResponse:
     store = get_stats_store()
     test = await store.get_test(test_id)
     if not test:
@@ -223,7 +260,11 @@ async def get_test(test_id: str) -> TestDetailResponse:
 
 
 @router.delete("/tests/{test_id}")
-async def delete_test(test_id: str) -> dict[str, str]:
+async def delete_test(
+    request: Request,
+    test_id: str,
+    principal: RequireOperator,
+) -> dict[str, str]:
     settings = get_settings()
     if settings.autonomous_mode:
         raise HTTPException(403, "Autonomous mode enabled; stop the container to end testing")
@@ -237,11 +278,12 @@ async def delete_test(test_id: str) -> dict[str, str]:
     cancelled = await cancel_test(test_id)
     if not cancelled:
         raise HTTPException(409, "could not cancel test")
+    audit_event("dns_test_cancelled", request, principal=principal, extra={"test_id": test_id})
     return {"test_id": test_id, "status": "cancelling"}
 
 
 @router.get("/tests/{test_id}/diagnosis", response_model=DiagnosisResponse)
-async def get_test_diagnosis(test_id: str) -> DiagnosisResponse:
+async def get_test_diagnosis(test_id: str, _principal: RequireReadOnly) -> DiagnosisResponse:
     store = get_stats_store()
     test = await store.get_test(test_id)
     if not test:
@@ -253,7 +295,7 @@ async def get_test_diagnosis(test_id: str) -> DiagnosisResponse:
 
 
 @router.get("/summary", response_model=GlobalSummaryResponse)
-async def global_summary() -> GlobalSummaryResponse:
+async def global_summary(_principal: RequireReadOnly) -> GlobalSummaryResponse:
     store = get_stats_store()
     data = await store.get_global_summary()
     tests = await store.list_tests()
@@ -276,15 +318,13 @@ async def global_summary() -> GlobalSummaryResponse:
 
 
 @router.get("/metrics")
-async def prometheus_metrics() -> PlainTextResponse:
-    settings = get_settings()
-    if not settings.metrics_enabled:
-        raise HTTPException(404, "metrics disabled")
+async def prometheus_metrics(request: Request) -> PlainTextResponse:
+    check_metrics_access(request)
     return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @router.get("/mtr", response_model=MtrRunResponse)
-async def get_mtr_latest() -> MtrRunResponse:
+async def get_mtr_latest(_principal: RequireReadOnly) -> MtrRunResponse:
     store = get_mtr_store()
     latest = await store.get_latest()
     if not latest:
@@ -293,7 +333,7 @@ async def get_mtr_latest() -> MtrRunResponse:
 
 
 @router.get("/mtr/runs", response_model=list[MtrRunResponse])
-async def list_mtr_runs() -> list[MtrRunResponse]:
+async def list_mtr_runs(_principal: RequireReadOnly) -> list[MtrRunResponse]:
     store = get_mtr_store()
     runs = await store.list_runs()
     return [_mtr_run_to_response(r) for r in runs]
@@ -301,6 +341,8 @@ async def list_mtr_runs() -> list[MtrRunResponse]:
 
 @router.post("/mtr", status_code=202, response_model=MtrStatusResponse)
 async def trigger_mtr(
+    request: Request,
+    principal: RequireOperator,
     service_name: str | None = Query(default=None),
     port: int | None = Query(default=None, ge=1, le=65535),
     count: int | None = Query(default=None, ge=1),
@@ -320,4 +362,10 @@ async def trigger_mtr(
     except MtrAlreadyRunningError:
         raise HTTPException(409, "an MTR run is already in progress")
 
+    audit_event(
+        "mtr_triggered",
+        request,
+        principal=principal,
+        extra={"run_id": run_id, "service_name": name, "port": resolved_port},
+    )
     return MtrStatusResponse(run_id=run_id, status="running")

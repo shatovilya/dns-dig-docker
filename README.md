@@ -40,6 +40,26 @@ curl -s http://localhost:8080/health
 curl -s http://localhost:8080/resolver
 ```
 
+### Optional Web UI
+
+Enable in `.env`:
+
+```env
+DNS_DEBUG_UI_ENABLED=true
+DNS_DEBUG_UI_BASE_PATH=/dns-debug
+API_AUTH_ENABLED=false
+```
+
+Restart and open the dashboard:
+
+```
+http://localhost:8080/dns-debug/
+```
+
+JSON API: `http://localhost:8080/dns-debug/api/ui/overview`
+
+**View modes:** Live (auto-refresh toggle, KPI trends, 3-tier IA), Historical (grouped snapshots, docker volume `./data/snapshots`), Compare (full panel deltas via `/api/ui/compare`). See [AGENT.md](AGENT.md) and AI skills [qa-ui](.ai/skills/qa-ui/SKILL.md) / [ux-designer](.ai/skills/ux-designer/SKILL.md). **Pre-release UX workflow** (5 stages before shipping UI changes): [AGENT.md → Pre-release UX workflow](AGENT.md#pre-release-ux-workflow), [debugging-checklist.md §10](.ai/skills/dns-debug/debugging-checklist.md).
+
 External service port: **8080**.
 
 ## MTR diagnostics
@@ -318,6 +338,20 @@ Copy `.env.example` to `.env`.
 | `MTR_INTERVAL_SECONDS` | `300` | Background run interval |
 | `MTR_TIMEOUT_SECONDS` | `120` | Subprocess timeout |
 | `MTR_MAX_HISTORY` | `10` | Number of runs kept in memory |
+| `DNS_DEBUG_UI_ENABLED` | `false` | Enable built-in Web UI at `/dns-debug/` |
+| `DNS_DEBUG_UI_READONLY` | `true` | View-only dashboard (no POST/DELETE from browser) |
+| `DNS_DEBUG_UI_REFRESH_SECONDS` | `5` | Client polling interval for UI panels |
+
+## API security
+
+The service supports optional API hardening via environment variables. Default: `API_AUTH_ENABLED=false` (backward compatible). Production: set `API_AUTH_ENABLED=true` and configure credentials.
+
+See [docs/SECURITY.md](docs/SECURITY.md) for roles, Prometheus protection, rate limits, and migration notes.
+
+```bash
+# With auth enabled
+curl -s -H "Authorization: Bearer <token>" http://localhost:8080/tests
+```
 
 ## AI project files
 
@@ -325,17 +359,22 @@ For AI agents (Cursor, Claude Code, etc.) the repository includes local guidance
 
 | File | Purpose |
 |------|---------|
-| `AGENT.md` | Main engineering brief: constraints, architecture, resolution model |
+| `AGENT.md` | Main engineering brief: constraints, architecture, resolution model, AI roles, pre-release UX workflow |
+| `CURSOR.md` | Cursor-specific role routing and doc sync |
+| `CLAUDE.md` | Short repo guide for Claude Code |
 | `.ai/skills/dns-debug/SKILL.md` | Skill for DNS logic, analytics, and metrics |
-| `.ai/skills/dns-debug/debugging-checklist.md` | Operational checklist with curl examples |
+| `.ai/skills/qa-ui/SKILL.md` | QA engineer — UI acceptance and regression |
+| `.ai/skills/ux-designer/SKILL.md` | UX designer — dashboard IA and states |
+| `.ai/skills/dns-debug/debugging-checklist.md` | Operational checklist with curl examples; §9 QA acceptance; §10 pre-release UX workflow |
 | `.ai/skills/dns-debug/metrics-reference.md` | Prometheus metrics reference (exact names from `app/metrics.py`) |
 | `.cursor/rules/dns-debug-project.mdc` | Cursor rule with project invariants |
-| `CLAUDE.md` | Short repo guide for Claude Code |
+| `.cursor/rules/qa-ux-gates.mdc` | QA/UX enforcement gates for UI work |
 
 ## Project structure
 
 ```
 app/                  # FastAPI application
+app/ui/               # Optional Web UI (templates, static, aggregators)
 prometheus/           # Prometheus config (monitoring profile)
 docker-compose.yml
 .env.example
@@ -346,6 +385,8 @@ docker-compose.yml
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/health` | Service status |
+| GET | `/live` | Liveness probe |
+| GET | `/ready` | Readiness probe |
 | GET | `/resolver` | Snapshot of `/etc/resolv.conf` |
 | POST | `/tests` | Start test (unavailable in autonomous mode) |
 | GET | `/tests` | List tests |
