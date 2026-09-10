@@ -269,7 +269,6 @@ class UIAggregator:
         primary = [a for a in attempts if not a.is_search_probe]
         latencies = [a.latency_ms for a in primary]
         p95 = _latency_percentiles(latencies)["p95"]
-        _aggregate_noise(tests)
         garbage = sum(1 for a in attempts if a.is_noisy or a.is_search_probe)
         useful = sum(1 for a in attempts if not a.is_noisy and not a.is_search_probe)
         garbage_ratio = safe_ratio(garbage, useful + garbage)

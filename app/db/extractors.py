@@ -78,7 +78,6 @@ def extract_resolver_aggregates(panels: dict[str, Any]) -> list[dict[str, Any]]:
         resolver = item.get("key")
         if not resolver:
             continue
-        by_mode_cache.get(resolver) or {}
         rows.append(
             {
                 "resolver": resolver,

@@ -219,6 +219,8 @@ def filter_attempts(tests: list[TestState], filters: UIFilters) -> list[QueryAtt
 
 
 async def get_snapshot_count(settings: Settings | None = None) -> int:
+    import logging
+
     settings = settings or get_settings()
     if not settings.snapshot_enabled:
         return 0
@@ -227,7 +229,8 @@ async def get_snapshot_count(settings: Settings | None = None) -> int:
 
         metas = await get_snapshot_store().list_snapshots()
         return len(metas)
-    except Exception:
+    except Exception as exc:
+        logging.getLogger(__name__).warning("Failed to count snapshots: %s", exc)
         return 0
 
 
