@@ -3,7 +3,6 @@ import asyncio
 import os
 import sys
 from datetime import datetime, timezone
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import dns.asyncresolver
@@ -13,19 +12,17 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 
-from config import Settings, get_settings
+from config import get_settings
 from dns_runner import (
     DnsTestRunner,
     build_autonomous_config,
     build_test_config_from_settings,
-    cancel_all_tests,
     cancel_test,
     expand_work_items,
-    start_test,
     start_test_background,
 )
-from models import NoiseType, QueryOutcome, ResolveMode, ResolveSpec, TestStatus
-from stats_store import QueryAttempt, get_stats_store
+from models import NoiseType, QueryOutcome, ResolveSpec, TestStatus
+from stats_store import get_stats_store
 
 
 def _reset_settings() -> None:
@@ -458,7 +455,7 @@ class TestCancellation:
     @pytest.mark.asyncio
     async def test_cancel_test_sets_event(self, test_settings, stats_store):
         """Test that cancel_test sets the cancel event."""
-        from dns_runner import _cancel_events, register_task
+        from dns_runner import register_task
 
         test_id = "cancel-test"
         cancel_event = asyncio.Event()
@@ -486,8 +483,7 @@ class TestCancellation:
     @pytest.mark.asyncio
     async def test_runner_respects_cancel_event(self, test_settings):
         """Test that runner stops when cancel event is set."""
-        from stats_store import get_stats_store
-        
+
         store = get_stats_store()
         await store.create_test("cancel-early-test", "test", {})
 
@@ -529,8 +525,7 @@ class TestBackgroundExecution:
     @pytest.mark.asyncio
     async def test_start_test_background(self, test_settings):
         """Test starting a test in background."""
-        from stats_store import get_stats_store
-        
+
         store = get_stats_store()
         test_id = "background-test"
         await store.create_test(test_id, "test", {})

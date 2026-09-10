@@ -2,14 +2,13 @@
 import asyncio
 import os
 import sys
-from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 
-from config import Settings, get_settings
+from config import get_settings
 from mtr_runner import (
     MtrAlreadyRunningError,
     MtrPeriodicRunner,
@@ -21,7 +20,7 @@ from mtr_runner import (
     start_mtr_background,
     trigger_mtr_now,
 )
-from mtr_store import MtrHop, MtrRunStatus, get_mtr_store
+from mtr_store import MtrRunStatus, get_mtr_store
 
 
 def _reset_settings() -> None:
@@ -138,8 +137,7 @@ class TestRunMtr:
     @pytest.mark.asyncio
     async def test_run_mtr_success(self, test_settings):
         """Test successful MTR run."""
-        from mtr_store import get_mtr_store
-        
+
         store = get_mtr_store()
         mock_stdout = b" 1. |-- router.local      0.0%     5   0.5   0.6   0.5   0.8   0.1\n"
         mock_stderr = b""
@@ -162,8 +160,7 @@ class TestRunMtr:
     @pytest.mark.asyncio
     async def test_run_mtr_timeout(self, test_settings, monkeypatch):
         """Test MTR run timeout."""
-        from mtr_store import get_mtr_store
-        
+
         store = get_mtr_store()
         monkeypatch.setenv("MTR_TIMEOUT_SECONDS", "0.1")
         _reset_settings()
@@ -186,8 +183,7 @@ class TestRunMtr:
     @pytest.mark.asyncio
     async def test_run_mtr_not_found(self, test_settings):
         """Test MTR binary not found."""
-        from mtr_store import get_mtr_store
-        
+
         store = get_mtr_store()
         with patch("asyncio.create_subprocess_exec", side_effect=FileNotFoundError()):
             run_id = await run_mtr("example.com", 443, 5, triggered_by="test", settings=test_settings)
@@ -200,8 +196,7 @@ class TestRunMtr:
     @pytest.mark.asyncio
     async def test_run_mtr_nonzero_exit(self, test_settings):
         """Test MTR run with non-zero exit code."""
-        from mtr_store import get_mtr_store
-        
+
         store = get_mtr_store()
         mock_stdout = b""
         mock_stderr = b"mtr: Unable to resolve target hostname"
@@ -222,8 +217,7 @@ class TestRunMtr:
     @pytest.mark.asyncio
     async def test_run_mtr_creates_store_entry(self, test_settings):
         """Test that run_mtr creates store entry."""
-        from mtr_store import get_mtr_store
-        
+
         store = get_mtr_store()
         mock_stdout = b" 1. |-- router.local      0.0%     5   0.5   0.6   0.5   0.8   0.1\n"
         mock_proc = AsyncMock()
@@ -247,8 +241,7 @@ class TestMtrConcurrency:
     @pytest.mark.asyncio
     async def test_trigger_mtr_now_success(self, test_settings):
         """Test triggering MTR manually."""
-        from mtr_store import get_mtr_store
-        
+
         store = get_mtr_store()
         mock_stdout = b" 1. |-- router.local      0.0%     5   0.5   0.6   0.5   0.8   0.1\n"
         mock_proc = AsyncMock()
@@ -284,7 +277,7 @@ class TestMtrConcurrency:
 
         with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
             # Start first run
-            run_id1 = await trigger_mtr_now("example.com", 443, 5)
+            await trigger_mtr_now("example.com", 443, 5)
 
             # Give it time to acquire lock
             await asyncio.sleep(0.05)
@@ -310,7 +303,7 @@ class TestMtrConcurrency:
         mock_proc.returncode = 0
 
         with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
-            run_id = await trigger_mtr_now("example.com", 443, 5)
+            await trigger_mtr_now("example.com", 443, 5)
 
             # Should be running now
             await asyncio.sleep(0.05)
@@ -327,8 +320,7 @@ class TestMtrPeriodicRunner:
     @pytest.mark.asyncio
     async def test_periodic_runner_runs_once(self, test_settings, monkeypatch):
         """Test that periodic runner executes MTR."""
-        from mtr_store import get_mtr_store
-        
+
         store = get_mtr_store()
         monkeypatch.setenv("MTR_INTERVAL_SECONDS", "1")
         _reset_settings()

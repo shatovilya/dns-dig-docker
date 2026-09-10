@@ -12,7 +12,7 @@ from mtr_runner import cancel_mtr, start_mtr_background
 from resolver_snapshot import capture, set_snapshot
 from stats_store import get_stats_store
 import metrics
-from ndots_analytics import effective_attempts, effective_ndots, effective_timeout_seconds, worst_case_resolve_budget_ms
+from ndots_analytics import effective_attempts, effective_timeout_seconds, worst_case_resolve_budget_ms
 from security.errors import register_exception_handlers
 from security.headers import SecurityHeadersMiddleware
 from security.middleware import SecurityMiddleware

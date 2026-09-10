@@ -1,12 +1,11 @@
 import os
 import sys
-from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 
 from config import Settings
 from ui.aggregator import derive_ui_health
-from ui.filters import UIFilters, envelope, parse_ui_filters, resolve_data_source, CompareFilters
+from ui.filters import UIFilters, envelope, resolve_data_source, CompareFilters
 
 
 def test_derive_ui_health_ok():

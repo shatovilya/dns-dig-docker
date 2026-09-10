@@ -20,7 +20,6 @@ from models import (
     TestDetailResponse,
     TestListItem,
     TestStatus,
-    TestSummaryResponse,
 )
 from mtr_runner import MtrAlreadyRunningError, is_mtr_running, trigger_mtr_now
 from mtr_store import MtrRunResult, get_mtr_store
