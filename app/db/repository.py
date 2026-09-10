@@ -164,13 +164,16 @@ async def _replace_child_rows(
     edns_rows: list[dict[str, Any]],
     chart_rows: list[dict[str, Any]],
 ) -> None:
-    for table in (
+    # SECURITY: Use allowlist of valid table names to prevent SQL injection
+    VALID_CHILD_TABLES = frozenset([
         "resolver_aggregates",
         "domain_aggregates",
         "error_aggregates",
         "edns_aggregates",
         "chart_buckets",
-    ):
+    ])
+    
+    for table in VALID_CHILD_TABLES:
         await conn.execute(f"DELETE FROM {table} WHERE snapshot_id = $1", snapshot_id)
 
     for row in resolver_rows:

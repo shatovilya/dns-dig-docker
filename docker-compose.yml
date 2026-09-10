@@ -4,6 +4,8 @@ services:
     environment:
       POSTGRES_DB: dns_debug
       POSTGRES_USER: dns_debug
+      # SECURITY: Default password for local development only.
+      # PRODUCTION: Override via .env or secrets. Do not expose port externally.
       POSTGRES_PASSWORD: dns_debug
     volumes:
       - postgres_data:/var/lib/postgresql/data

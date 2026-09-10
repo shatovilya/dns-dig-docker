@@ -71,6 +71,22 @@ PROMETHEUS_TRUST_INTERNAL_NETWORKS=false
 
 Never commit real secrets.
 
+## Credential management
+
+### API credentials
+
+- Generate secure tokens: `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`
+- Never use `CHANGE_ME` or weak placeholder values in production
+- Store secrets in environment variables, not in code or compose files
+- See `.env.example` for annotated examples with security guidance
+
+### PostgreSQL credentials
+
+- **Default credentials** (`dns_debug:dns_debug`) are for **local development only**
+- **Production:** Override `DNS_DEBUG_DB_PASSWORD` with a strong password
+- Never expose PostgreSQL port externally (not mapped in default compose)
+- Consider using Docker secrets or external secret management for production
+
 ## Prometheus scrape
 
 Default: `/metrics` open on trusted internal networks (`PROMETHEUS_TRUST_INTERNAL_NETWORKS=true` allows RFC1918/loopback).

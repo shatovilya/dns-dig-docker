@@ -357,10 +357,11 @@ class DnsTestRunner:
 
                         await save_test_snapshot(self.test_id)
                         last_snapshot_checkpoint = time.monotonic()
-                    except Exception:
+                    except Exception as exc:
                         logger.exception(
-                            "Failed periodic UI snapshot checkpoint for test %s",
+                            "Failed periodic UI snapshot checkpoint for test %s: %s",
                             self.test_id,
+                            exc,
                             extra={"test_id": self.test_id},
                         )
 
@@ -377,8 +378,8 @@ class DnsTestRunner:
                 status = TestStatus.COMPLETED
             await self.store.set_progress(self.test_id, 0.0 if continuous else 1.0)
             metrics.set_test_progress(self.test_id, 0.0 if continuous else 1.0)
-        except Exception:
-            logger.exception("Test %s failed", self.test_id, extra={"test_id": self.test_id})
+        except Exception as exc:
+            logger.exception("Test %s failed: %s", self.test_id, exc, extra={"test_id": self.test_id})
             status = TestStatus.FAILED
         finally:
             await self.store.update_status(self.test_id, status)
@@ -391,10 +392,11 @@ class DnsTestRunner:
                         from snapshot_store import save_test_snapshot
 
                         await save_test_snapshot(self.test_id)
-                    except Exception:
+                    except Exception as exc:
                         logger.exception(
-                            "Failed to save UI snapshot for test %s",
+                            "Failed to save UI snapshot for test %s: %s",
                             self.test_id,
+                            exc,
                             extra={"test_id": self.test_id},
                         )
                 if summary.ndots_search_analytics:
