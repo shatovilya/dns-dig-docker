@@ -70,8 +70,6 @@ def extract_test_run(payload: dict[str, Any], summary: dict[str, Any]) -> dict[s
 def extract_resolver_aggregates(panels: dict[str, Any]) -> list[dict[str, Any]]:
     rankings = panels.get("rankings") or {}
     errors = panels.get("errors") or {}
-    cache = panels.get("cache") or {}
-    by_mode_cache = (cache.get("by_resolve_mode") or {}) if isinstance(cache, dict) else {}
     rows: list[dict[str, Any]] = []
 
     for item in rankings.get("resolvers") or []:

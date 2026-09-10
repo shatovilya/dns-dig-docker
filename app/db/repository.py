@@ -169,7 +169,7 @@ async def _replace_child_rows(
         "edns_aggregates",
         "chart_buckets",
     ])
-    
+
     for table in VALID_CHILD_TABLES:
         await conn.execute(f"DELETE FROM {table} WHERE snapshot_id = $1", snapshot_id)
 
