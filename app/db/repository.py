@@ -1,10 +1,8 @@
 import logging
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
 import metrics
-from config import Settings, get_settings
 from db.connection import get_db_pool
 from db.extractors import (
     extract_chart_buckets,
@@ -16,7 +14,6 @@ from db.extractors import (
     extract_test_run,
     payload_size_bytes,
 )
-from retention import retention_cutoff
 
 logger = logging.getLogger(__name__)
 

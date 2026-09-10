@@ -1,6 +1,5 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Any
 
 import metrics
 from config import Settings, get_settings
