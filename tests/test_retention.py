@@ -1,6 +1,10 @@
+import os
+import sys
 from datetime import datetime, timedelta, timezone
 
 import pytest
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 
 from config import Settings
 from retention import is_within_retention, retention_cutoff, retention_days

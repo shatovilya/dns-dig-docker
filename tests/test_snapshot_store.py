@@ -1,8 +1,12 @@
 import json
+import os
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 
 from config import Settings
 from snapshot_store import FileSnapshotStore, get_snapshot_store, reset_snapshot_store

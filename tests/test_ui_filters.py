@@ -1,4 +1,8 @@
+import os
+import sys
 from datetime import datetime, timezone
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 
 from config import Settings
 from ui.aggregator import derive_ui_health
