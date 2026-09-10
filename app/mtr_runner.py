@@ -236,8 +236,8 @@ class MtrPeriodicRunner:
                     count,
                     triggered_by="periodic",
                 )
-            except Exception:
-                logger.exception("Periodic MTR run failed", extra={"event": "mtr_periodic_error"})
+            except Exception as exc:
+                logger.exception("Periodic MTR run failed: %s", exc, extra={"event": "mtr_periodic_error"})
 
             if self.cancel_event.is_set():
                 break

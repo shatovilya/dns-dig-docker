@@ -32,7 +32,7 @@ def _parse_auth_from_request(request: Request) -> Principal | None:
             decoded = base64.b64decode(auth_header[6:].strip()).decode()
             user, _, password = decoded.partition(":")
             basic = HTTPBasicCredentials(username=user, password=password)
-        except Exception:
+        except (ValueError, UnicodeDecodeError, base64.binascii.Error):
             basic = None
 
     return _authenticate_request(request, credentials, api_key, basic)
