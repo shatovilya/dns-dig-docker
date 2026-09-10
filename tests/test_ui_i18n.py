@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 from pathlib import Path
 
 import pytest
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 
 from config import Settings
 from ui.aggregator import derive_ui_health

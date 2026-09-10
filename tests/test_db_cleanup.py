@@ -1,6 +1,10 @@
+import os
+import sys
 from datetime import datetime, timedelta, timezone
 
 import pytest
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 
 from config import Settings
 from db.cleanup import _parse_delete_count, run_retention_cleanup

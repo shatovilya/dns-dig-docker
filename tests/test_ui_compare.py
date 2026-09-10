@@ -1,4 +1,9 @@
+import os
+import sys
+
 import pytest
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 
 from ui.compare import build_compare_response, compare_kpis, compute_delta, compare_cache, compare_load
 
